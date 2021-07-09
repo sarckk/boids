@@ -1,9 +1,11 @@
 #include <iostream>
 #include <cmath>
 #include "Simulation.h"
-#include "Vector2d.h"
+
+#include <imgui-SFML.h>
 
 int main() {
+
     std::srand(static_cast<unsigned>(std::time(NULL)));
 
     Simulation sim;
@@ -12,13 +14,8 @@ int main() {
         sim.update();
         sim.render();
     }
-//    Vector2d a = {-394, 2000};
-//    a.x = fmod(a.x, 1920);
-//    a.y = fmod(a.y, 1080);
-//    if(a.x < 0) a.x += 1920;
-//    if(a.y < 0) a.x += 1080;
-//
-//    std::cout << a << '\n';
+
+    ImGui::SFML::Shutdown();
 
     return 0;
 }

@@ -11,23 +11,29 @@
 #include <SFML/Audio.hpp>
 #include "Vector2d.h"
 
+struct UpdateBoidPositionParams {
+    int alignDist {};
+    int alignMag {};
+    int attractDist {};
+    int attractMag {};
+    int repelDist {};
+    int repelMag {};
+    int speed {};
+};
+
 class Boid {
 private:
     Vector2d velocity;
     Vector2d position;
-    int alignDist;
-    int attractDist;
-    int repelDist;
     int speed;
     int mass;
     int angle;
-    int radius;
 
 public:
     explicit Boid(Vector2d position);
 
-    void updatePosition(const std::vector<Boid>& boids);
-    void move(const Vector2d& acceleration);
+    void updatePosition(const std::vector<Boid>& boids, UpdateBoidPositionParams params);
+    void move(const Vector2d& acceleration, int speed);
 
     Vector2d getPosition() const;
     Vector2d getVelocity() const;

@@ -13,6 +13,7 @@ private:
     sf::RenderWindow* window;
     sf::VideoMode videoMode;
     sf::Event ev;
+    sf::Clock deltaClock;
 
     // Boids
     std::vector<Boid> boids;
@@ -22,7 +23,7 @@ private:
     void initWindow();
     void initBoids();
 
-    void updateBoids();
+    void updateBoids(UpdateBoidPositionParams params);
     void renderBoids();
 
 public:

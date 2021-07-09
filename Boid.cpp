@@ -22,7 +22,7 @@ float getBoidDistance(const Boid& a, const Boid& b) {
     return sqrt(d_x * d_x + d_y * d_y);
 }
 
-void Boid::updatePosition(const std::vector<Boid>& boids) {
+void Boid::updatePosition(const std::vector<Boid>& boids, UpdateBoidPositionParams params) {
     Vector2d steer {};
     Vector2d align, attract, repel;
     int attractCount = 0;
@@ -31,51 +31,52 @@ void Boid::updatePosition(const std::vector<Boid>& boids) {
         if(&b == this) continue;
 
         float dist = getBoidDistance(*this, b);
-        assert(dist != 0);
 
-        if (dist < repelDist) {
+        if(dist == 0) {
+            repel -= velocity * 2;
+            continue;
+        }
+
+        if (dist < params.repelDist) {
             repel += (position - b.position);
             repel /= dist;
         }
 
-        if (dist < attractDist) {
+        if (dist < params.attractDist) {
             attractCount++;
             attract += b.position;
         }
 
-        if (dist < alignDist) {
+        if (dist < params.alignDist) {
             align += (b.velocity / dist);
         }
     }
 
     if(repel.magnitude() > 0) {
-        repel.setMag(1.2);
+        repel.setMag(params.repelMag);
     }
 
     if(attractCount) {
         attract /= attractCount; // get average position
         attract -= position;     // desired vector
-        attract.setMag(0.5);
+        attract.setMag(params.attractMag);
     }
 
-    // reduce force
     if(align.magnitude() > 0) {
-        align.setMag(5);
+        align.setMag(params.alignMag);
     }
 
     Vector2d desiredVector = align + attract + repel;
     if(desiredVector.magnitude() > 0) {
         steer = desiredVector - velocity;
-        if(isinf(steer.x)) {
-            std::cout << "\n";
-        }
     }
-    move(steer);
+
+    move(steer, params.speed);
 }
 
-void Boid::move(const Vector2d& acceleration) {
+void Boid::move(const Vector2d& acceleration, int speed) {
     velocity += acceleration;
-    velocity.setMag(this->speed);
+    velocity.limit_(speed);
 
     position += velocity;
 
@@ -88,10 +89,7 @@ void Boid::move(const Vector2d& acceleration) {
 Boid::Boid(Vector2d p) {
     this->mass = 1;
     this->position = p;
-    this->alignDist = 140;
-    this->attractDist = 120;
     this->speed = 10;
-    this->repelDist = 60;
     int maxV = 5;
     int minV = -5;
     float horiz_speed = std::rand() % (maxV + 1 - minV) + minV;
