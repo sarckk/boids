@@ -26,17 +26,18 @@ float Vector2d::magnitude() const {
 
 void Vector2d::normalize_() {
     float m = magnitude();
-    assert(m != 0);
-    x /= m;
-    y /= m;
+    if (m > 0) {
+        x /= m;
+        y /= m;
+    }
 }
 
 void Vector2d::limit_(float limit) {
     float m = magnitude();
-    assert(m != 0);
     if (m > limit) {
-        x = (x / m) * limit;
-        y = (y / m) * limit;
+        normalize_();
+        x *= limit;
+        y *= limit;
     }
 }
 

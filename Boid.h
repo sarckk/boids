@@ -13,12 +13,12 @@
 
 struct UpdateBoidPositionParams {
     int alignDist {};
-    int alignMag {};
+    float alignWeight {};
     int attractDist {};
-    int attractMag {};
+    float attractWeight {};
     int repelDist {};
-    int repelMag {};
-    int speed {};
+    float repelWeight {};
+    int maxSpeed {};
 };
 
 class Boid {

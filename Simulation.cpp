@@ -61,13 +61,13 @@ void Simulation::update() {
 
     ImGui::Begin("Boids Controls");
 
-    static int alignDist = 170;
-    static float alignMag = 4;
-    static int attractDist = 220;
-    static float attractMag = 1.0;
-    static int repelDist = 30;
-    static float repelMag = 6.1;
-    static int speed = 20;
+    static int alignDist = 130;
+    static float alignWeight = 0.160;
+    static int attractDist = 150;
+    static float attractWeight = 0.015;
+    static int repelDist = 40;
+    static float repelWeight = 0.06;
+    static int maxSpeed = 13;
 
     // ID of ##On hides label
     ImGui::PushItemWidth(ImGui::GetWindowWidth());
@@ -76,32 +76,38 @@ void Simulation::update() {
     ImGui::SameLine(); HelpMarker("Each boid will try to align to the average velocity of all boids within this radius.");
     ImGui::SliderInt("##On", &alignDist, 0, 300 );
 
-    ImGui::Text("Align Magnitude");
-    ImGui::SameLine(); HelpMarker("The magnitude that the vector representing combined alignment forces will be set to for"
-                                  " the calculation of steering force.");
-    ImGui::SliderFloat("##1n", &alignMag, 0, 10 );
+    ImGui::Text("Align Weight");
+    ImGui::SameLine(); HelpMarker("Decides how abruptly to adjust boid velocity to align with flock. "
+                                  "Ranges from 0 (disable alignment) to 1 (adjust fully).");
+    ImGui::SliderFloat("##1n", &alignWeight, 0, 1 );
 
     ImGui::Text("Attraction Radius");
     ImGui::SameLine(); HelpMarker("Each boid will be attracted to the center of mass of all boids within this radius.");
     ImGui::SliderInt("##2n", &attractDist, 0, 300 );
 
-    ImGui::Text("Attraction Magnitude");
-    ImGui::SameLine(); HelpMarker("The magnitude that the vector representing combined attractive forces will be set to for"
-                                  " the calculation of steering force.");
-    ImGui::SliderFloat("##3n", &attractMag, 0, 10 );
+    ImGui::Text("Attraction Weight");
+    ImGui::SameLine(); HelpMarker("Decides how abruptly to adjust boid velocity to steer towards local center of mass. "
+                                  "Ranges from 0 (disable attraction) to 1 (adjust fully).");
+    ImGui::SliderFloat("##3n", &attractWeight, 0, 1 );
 
     ImGui::Text("Repulsion Radius");
     ImGui::SameLine(); HelpMarker("Each boid will experience a repulsive force from all boids within this radius of itself.");
     ImGui::SliderInt("##4n", &repelDist, 0, 300 );
 
-    ImGui::Text("Repulsion Magnitude");
-    ImGui::SameLine(); HelpMarker("The magnitude that the vector representing combined repulsive force will be set to for "
-                                  " the calculation of steering force.");
-    ImGui::SliderFloat("##5n", &repelMag, 0, 10 );
+    ImGui::Text("Repulsion Weight");
+    ImGui::SameLine(); HelpMarker("Decides how abruptly to adjust boid velocity to steer away from local boids. "
+                                  "Ranges from 0 (disable repulsion) to 1 (adjust fully).");
+    ImGui::SliderFloat("##5n", &repelWeight, 0, 1 );
 
     ImGui::Text("Flock speed");
-    ImGui::SameLine(); HelpMarker("Speed at which each boid in the flock with travel at.");
-    ImGui::SliderInt("##6n", &speed, 1, 50 );
+    ImGui::SameLine(); HelpMarker("Max speed at which a boid can travel at.");
+    ImGui::SliderInt("##6n", &maxSpeed, 1, 50 );
+
+    Vector2d v;
+    for(auto b : boids) {
+        v += b.getVelocity();
+    }
+    v/= boids.size();
 
     ImGui::PopItemWidth();
 
@@ -109,12 +115,12 @@ void Simulation::update() {
 
     UpdateBoidPositionParams params;
     params.alignDist = alignDist;
-    params.alignMag = alignMag;
+    params.alignWeight = alignWeight;
     params.attractDist = attractDist;
-    params.attractMag = attractMag;
+    params.attractWeight = attractWeight;
     params.repelDist = repelDist;
-    params.repelMag = repelMag;
-    params.speed = speed;
+    params.repelWeight = repelWeight;
+    params.maxSpeed = maxSpeed;
     this->updateBoids(params);
 }
 
@@ -136,7 +142,7 @@ void Simulation::render() {
 
 void Simulation::initVariables() {
     this->window = nullptr;
-    this->startBoidCount = 500;
+    this->startBoidCount = 600;
 }
 
 void Simulation::initWindow() {
