@@ -134,9 +134,11 @@ void Simulation::render() {
 }
 
 void Simulation::initWindow() {
+    settings.antialiasingLevel = 8;
     videoMode = sf::VideoMode(1920, 1080, 32);
     window = new sf::RenderWindow(videoMode, "Boids Simulation",
-                                        sf::Style::Titlebar | sf::Style::Close);
+                                        sf::Style::Titlebar | sf::Style::Close,
+                                        settings);
     window->setFramerateLimit(60);
 }
 

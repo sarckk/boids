@@ -2,15 +2,15 @@
 // Created by Yong Hoon Shin on 06/07/2021.
 //
 
-#include <cmath>
-#include <iostream>
 #include "Boid.h"
+#include "VectorArithmetic.h"
 
 sf::Vector2f Boid::getVelocity() const {
     return velocity;
 };
 
 void Boid::updateVelocity(const std::vector<Boid> &boids, UpdateBoidPositionParams params) {
+    using namespace VectorArithmetic;
     sf::Vector2f steer {};
     sf::Vector2f align, attract, repel;
     int attractCount = 0;
@@ -20,7 +20,7 @@ void Boid::updateVelocity(const std::vector<Boid> &boids, UpdateBoidPositionPara
     for(const Boid& b : boids) {
         if(&b == this) continue;
 
-        float dist = getBoidDistance(*this, b);
+        float dist = getDistance(this->getPosition(), b.getPosition());
 
         if(dist < 1e-2) continue;
 
@@ -68,18 +68,16 @@ void Boid::updateVelocity(const std::vector<Boid> &boids, UpdateBoidPositionPara
     steer = acceleration / mass;
 
     velocity += steer;
-
     limit(velocity, params.maxSpeed);
+
+    setDirection(velocity);
 }
 
 Boid::Boid(sf::Vector2f pos, sf::Vector2f v)
-: sf::Shape()
+: Arrow(pos, v, sf::Color::Red, 7, 15)
 , velocity(v)
 , mass(1)
 {
-    setPosition(pos);
-    setFillColor(sf::Color::Red);
-    update();
 }
 
 void Boid::moveBounded(unsigned int windowWidth, unsigned int windowHeight, unsigned int margin) {
@@ -96,23 +94,6 @@ void Boid::moveBounded(unsigned int windowWidth, unsigned int windowHeight, unsi
         velocity.y += boundingForce;
     } else if(getPosition().y > windowHeight - margin) {
         velocity.y -= boundingForce;
-    }
-}
-
-std::size_t Boid::getPointCount() const
-{
-    return 4;
-}
-
-sf::Vector2f Boid::getPoint(std::size_t index) const
-{
-    switch (index)
-    {
-        default:
-        case 0: return sf::Vector2f(0, 0);
-        case 1: return sf::Vector2f(5, 0);
-        case 2: return sf::Vector2f(5,5);
-        case 3: return sf::Vector2f(0, 5);
     }
 }
 

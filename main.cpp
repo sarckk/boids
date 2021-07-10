@@ -1,8 +1,8 @@
 #include <iostream>
 #include <cmath>
-#include "Simulation.h"
-
 #include <imgui-SFML.h>
+
+#include "Simulation.h"
 
 int main() {
 
@@ -16,6 +16,5 @@ int main() {
     }
 
     ImGui::SFML::Shutdown();
-
     return 0;
 }

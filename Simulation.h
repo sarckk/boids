@@ -14,6 +14,7 @@ private:
     sf::VideoMode videoMode;
     sf::Event ev;
     sf::Clock deltaClock;
+    sf::ContextSettings settings;
 
     // Boids
     std::vector<Boid> boids;
