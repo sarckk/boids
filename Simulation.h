@@ -17,10 +17,11 @@ private:
 
     // Boids
     std::vector<Boid> boids;
-    unsigned startBoidCount;
+    unsigned int startBoidCount;
+    unsigned int margin;
 
-    void initVariables();
     void initWindow();
+    void initImGui();
     void initBoids();
 
     void updateBoids(UpdateBoidPositionParams params);

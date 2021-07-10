@@ -11,6 +11,7 @@
 #include "Simulation.h"
 #include "Boid.h"
 
+// from imgui docs
 static void HelpMarker(const char* desc)
 {
     ImGui::TextDisabled("(?)");
@@ -25,16 +26,16 @@ static void HelpMarker(const char* desc)
 }
 
 void Simulation::pollEvents() {
-    while(this->window->pollEvent(this->ev)) {
-        ImGui::SFML::ProcessEvent(this->ev);
+    while(window->pollEvent(ev)) {
+        ImGui::SFML::ProcessEvent(ev);
 
-        switch(this->ev.type) {
+        switch(ev.type) {
             case sf::Event::Closed:
-                this->window->close();
+                window->close();
                 break;
             case sf::Event::KeyPressed:
-                if (this->ev.key.code == sf::Keyboard::Escape)
-                    this->window->close();
+                if (ev.key.code == sf::Keyboard::Escape)
+                    window->close();
                 break;
         }
     }
@@ -42,14 +43,14 @@ void Simulation::pollEvents() {
 
 
 void Simulation::updateBoids(UpdateBoidPositionParams params) {
-    for(Boid& b: this->boids) {
-        b.updatePosition(this->boids, params);
+    for(Boid& b: boids) {
+        b.moveBounded(window->getSize().x, window->getSize().y, margin);
+        b.updateVelocity(boids, params);
     }
 }
 
-
 void Simulation::update() {
-    this->pollEvents();
+    pollEvents();
 
     ImGui::SFML::Update(*window, deltaClock.restart());
 
@@ -65,15 +66,15 @@ void Simulation::update() {
     static float alignWeight = 0.160;
     static int attractDist = 150;
     static float attractWeight = 0.015;
-    static int repelDist = 40;
-    static float repelWeight = 0.06;
+    static int repelDist = 30;
+    static float repelWeight = 0.045;
     static int maxSpeed = 13;
 
     // ID of ##On hides label
     ImGui::PushItemWidth(ImGui::GetWindowWidth());
 
     ImGui::Text("Align Radius");
-    ImGui::SameLine(); HelpMarker("Each boid will try to align to the average velocity of all boids within this radius.");
+    ImGui::SameLine(); HelpMarker("Each boid will try to align to the average velocity of all boids within adius.");
     ImGui::SliderInt("##On", &alignDist, 0, 300 );
 
     ImGui::Text("Align Weight");
@@ -82,7 +83,7 @@ void Simulation::update() {
     ImGui::SliderFloat("##1n", &alignWeight, 0, 1 );
 
     ImGui::Text("Attraction Radius");
-    ImGui::SameLine(); HelpMarker("Each boid will be attracted to the center of mass of all boids within this radius.");
+    ImGui::SameLine(); HelpMarker("Each boid will be attracted to the center of mass of all boids within adius.");
     ImGui::SliderInt("##2n", &attractDist, 0, 300 );
 
     ImGui::Text("Attraction Weight");
@@ -91,7 +92,7 @@ void Simulation::update() {
     ImGui::SliderFloat("##3n", &attractWeight, 0, 1 );
 
     ImGui::Text("Repulsion Radius");
-    ImGui::SameLine(); HelpMarker("Each boid will experience a repulsive force from all boids within this radius of itself.");
+    ImGui::SameLine(); HelpMarker("Each boid will experience a repulsive force from all boids within adius of itself.");
     ImGui::SliderInt("##4n", &repelDist, 0, 300 );
 
     ImGui::Text("Repulsion Weight");
@@ -102,12 +103,6 @@ void Simulation::update() {
     ImGui::Text("Flock speed");
     ImGui::SameLine(); HelpMarker("Max speed at which a boid can travel at.");
     ImGui::SliderInt("##6n", &maxSpeed, 1, 50 );
-
-    Vector2d v;
-    for(auto b : boids) {
-        v += b.getVelocity();
-    }
-    v/= boids.size();
 
     ImGui::PopItemWidth();
 
@@ -121,15 +116,13 @@ void Simulation::update() {
     params.repelDist = repelDist;
     params.repelWeight = repelWeight;
     params.maxSpeed = maxSpeed;
-    this->updateBoids(params);
+    updateBoids(params);
 }
 
-void Simulation::renderBoids() {
-    for (const Boid& b : this->boids) {
-        sf::RectangleShape r { sf::Vector2f(15.f,15.f) };
-        r.setPosition(b.getPosition().x, b.getPosition().y);
-        r.setFillColor(sf::Color::Red);
-        window->draw(r);
+void Simulation::renderBoids()
+{
+    for (const Boid& b : boids) {
+        window->draw(b);
     }
 }
 
@@ -140,55 +133,58 @@ void Simulation::render() {
     window->display();
 }
 
-void Simulation::initVariables() {
-    this->window = nullptr;
-    this->startBoidCount = 600;
+void Simulation::initWindow() {
+    videoMode = sf::VideoMode(1920, 1080, 32);
+    window = new sf::RenderWindow(videoMode, "Boids Simulation",
+                                        sf::Style::Titlebar | sf::Style::Close);
+    window->setFramerateLimit(60);
 }
 
-void Simulation::initWindow() {
-    this->videoMode = sf::VideoMode(1920, 1080, 32);
-    this->window = new sf::RenderWindow(this->videoMode, "Boids Simulation",
-                                        sf::Style::Titlebar | sf::Style::Close);
-    this->window->setFramerateLimit(60);
-
-    // imgui stuff
+void Simulation::initImGui(){
     ImGui::SFML::Init(*window);
-    this->deltaClock = sf::Clock{ };
+    deltaClock = sf::Clock{ };
 
     constexpr auto scale_factor = 2.0;
     ImGui::GetIO().FontGlobalScale = scale_factor;
-
 }
 
 void Simulation::initBoids() {
-    for(int i = 0; i < this->startBoidCount; i++) {
+    for(int i = 0; i < startBoidCount; i++) {
         // spawn a boid
-        sf::Vector2u winSize = this->window->getSize();
-        unsigned int winWidth = winSize.x;
-        unsigned int winHeight = winSize.y;
-
-        Vector2d p {
-            (float)(rand() % winWidth),
-            (float)(rand() % winHeight),
+        sf::Vector2f pos {
+            (float)(rand() % window->getSize().x),
+            (float)(rand() % window->getSize().y),
         };
 
-        Boid boid {p};
-        this->boids.push_back(boid);
+        int maxV = 10;
+        int minV = -10;
+        float horiz_speed = std::rand() % (maxV + 1 - minV) + minV;
+        float vert_speed {0};
+        do {
+            vert_speed = std::rand() % (maxV + 1 - minV) + minV;
+        } while (vert_speed == 0);
+
+        sf::Vector2f v {horiz_speed, vert_speed};
+
+        boids.emplace_back(pos, v);
     }
 }
 
-Simulation::Simulation() {
-    this->initVariables();
-    this->initWindow();
-    this->initBoids();
+Simulation::Simulation()
+: window{nullptr}
+, startBoidCount{600}
+, margin{200} {
+    initWindow();
+    initImGui();
+    initBoids();
 }
 
 Simulation::~Simulation() {
-    delete this->window;
+    delete window;
 }
 
 const bool Simulation::running() const {
-    return this->window->isOpen();
+    return window->isOpen();
 }
 
 

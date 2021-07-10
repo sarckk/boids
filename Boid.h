@@ -9,7 +9,6 @@
 #include <SFML/System.hpp>
 #include <SFML/Window.hpp>
 #include <SFML/Audio.hpp>
-#include "Vector2d.h"
 
 struct UpdateBoidPositionParams {
     int alignDist {};
@@ -21,22 +20,55 @@ struct UpdateBoidPositionParams {
     int maxSpeed {};
 };
 
-class Boid {
+class Boid : public sf::Shape {
 private:
-    Vector2d velocity;
-    Vector2d position;
+    sf::Vector2f velocity;
     int speed;
-    int mass;
+    float mass;
     int angle;
 
 public:
-    explicit Boid(Vector2d position);
+    explicit Boid(sf::Vector2f position, sf::Vector2f velocity);
 
-    void updatePosition(const std::vector<Boid>& boids, UpdateBoidPositionParams params);
-    void move(const Vector2d& acceleration, int speed);
+    void updateVelocity(const std::vector<Boid>& boids, UpdateBoidPositionParams params);
 
-    Vector2d getPosition() const;
-    Vector2d getVelocity() const;
+    void moveBounded(unsigned int windowWidth, unsigned int windowHeight, unsigned int margin);
+    sf::Vector2f getVelocity() const;
+
+    // sf::Shape methods
+    std::size_t getPointCount() const override;
+    sf::Vector2f getPoint(std::size_t index) const override;
+
+    // static helper methods
+    static float getBoidDistance(const Boid& a, const Boid& b) {
+        float d_x = a.getPosition().x - b.getPosition().x;
+        float d_y = a.getPosition().y - b.getPosition().y;
+        return static_cast<float>(sqrt(d_x * d_x + d_y * d_y));
+    }
+
+    static float magnitude(sf::Vector2f& vec)  {
+        return static_cast<float>(sqrt(vec.x * vec.x + vec.y * vec.y));
+    }
+
+    static void normalize(sf::Vector2f& vec)  {
+        float m = magnitude(vec);
+        if(m > 0.) {
+            vec /= m;
+        }
+    }
+
+    static void limit(sf::Vector2f& vec, float limit)  {
+        float m = magnitude(vec);
+        if(m > 0 && m > limit) {
+            normalize(vec);
+            vec *= limit;
+        }
+    }
+
+    static void setMag(sf::Vector2f& vec, float mag)  {
+        normalize(vec);
+        vec *= mag;
+    }
 };
 
 

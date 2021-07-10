@@ -3,28 +3,16 @@
 //
 
 #include <cmath>
-#include <assert.h>
 #include <iostream>
 #include "Boid.h"
-#include "Vector2d.h"
 
-Vector2d Boid::getPosition() const {
-    return position;
-}
-
-Vector2d Boid::getVelocity() const {
+sf::Vector2f Boid::getVelocity() const {
     return velocity;
 };
 
-float getBoidDistance(const Boid& a, const Boid& b) {
-    float d_x = a.getPosition().x - b.getPosition().x;
-    float d_y = a.getPosition().y - b.getPosition().y;
-    return sqrt(d_x * d_x + d_y * d_y);
-}
-
-void Boid::updatePosition(const std::vector<Boid>& boids, UpdateBoidPositionParams params) {
-    Vector2d steer {};
-    Vector2d align, attract, repel;
+void Boid::updateVelocity(const std::vector<Boid> &boids, UpdateBoidPositionParams params) {
+    sf::Vector2f steer {};
+    sf::Vector2f align, attract, repel;
     int attractCount = 0;
     int alignCount = 0;
     int repelCount = 0;
@@ -34,19 +22,16 @@ void Boid::updatePosition(const std::vector<Boid>& boids, UpdateBoidPositionPara
 
         float dist = getBoidDistance(*this, b);
 
-        if(dist == 0) {
-            continue;
-        }
+        if(dist < 1e-2) continue;
 
         if (dist < params.repelDist) {
             repelCount++;
-            repel += position - b.position;
-            repel /= (dist * dist); // scale by how close it is
+            repel += (getPosition() - b.getPosition()) / (dist * dist);
         }
 
         if (dist < params.attractDist) {
             attractCount++;
-            attract += b.position;
+            attract += b.getPosition();
         }
 
         if (dist < params.alignDist) {
@@ -56,64 +41,79 @@ void Boid::updatePosition(const std::vector<Boid>& boids, UpdateBoidPositionPara
     }
 
     if(repelCount) {
-        repel /= repelCount;
-        repel.setMag(params.maxSpeed);
+        repel /= (float) repelCount;
+        setMag(repel, params.maxSpeed);
         repel -= velocity;
         repel *= params.repelWeight;
     }
 
+
     if(attractCount) {
-        attract /= attractCount; // get average position
-        attract -= position;
-        attract.setMag(params.maxSpeed);
+        attract /= (float) attractCount; // get average position
+        attract -= getPosition();
+        setMag(attract, params.maxSpeed);
         attract -= velocity;
         attract *= params.attractWeight;
     }
 
     if(alignCount) {
-        align /= alignCount;
-        align.setMag(params.maxSpeed);
+        align /= (float) alignCount;
+        setMag(align, params.maxSpeed);
         align -= velocity;
         align *= params.alignWeight;
     }
 
-    Vector2d acceleration {};
+    sf::Vector2f acceleration {};
     acceleration = align + repel + attract;
     steer = acceleration / mass;
-    move(steer, params.maxSpeed);
+
+    velocity += steer;
+
+    limit(velocity, params.maxSpeed);
 }
 
-void Boid::move(const Vector2d& acceleration, int speed) {
-    velocity += acceleration;
-    velocity.limit_(speed);
-    int margin = 50;
+Boid::Boid(sf::Vector2f pos, sf::Vector2f v)
+: sf::Shape()
+, velocity(v)
+, mass(1)
+{
+    setPosition(pos);
+    setFillColor(sf::Color::Red);
+    update();
+}
 
-    if(position.y < margin) {
-        velocity.y += 1;
-    } else if(position.y > 1080 - margin) {
-        velocity.y -= 1;
+void Boid::moveBounded(unsigned int windowWidth, unsigned int windowHeight, unsigned int margin) {
+    move(velocity);
+    int boundingForce = 1;
+
+    if(getPosition().x < margin) {
+        velocity.x += boundingForce;
+    } else if(getPosition().x > windowWidth - margin) {
+        velocity.x -= boundingForce;
     }
 
-    if(position.x < margin) {
-        velocity.x += 1;
-    } else if(position.x > 1920 - margin) {
-        velocity.x -= 1;
+    if(getPosition().y < margin) {
+        velocity.y += boundingForce;
+    } else if(getPosition().y > windowHeight - margin) {
+        velocity.y -= boundingForce;
     }
-
-    position += velocity;
-
 }
 
-Boid::Boid(Vector2d p) {
-    this->mass = 1;
-    this->position = p;
-    int maxV = 10;
-    int minV = -10;
-    float horiz_speed = std::rand() % (maxV + 1 - minV) + minV;
-    float vert_speed {0};
-    do {
-        vert_speed = std::rand() % (maxV + 1 - minV) + minV;
-    } while (vert_speed == 0);
-
-    this->velocity = Vector2d(horiz_speed, vert_speed);
+std::size_t Boid::getPointCount() const
+{
+    return 4;
 }
+
+sf::Vector2f Boid::getPoint(std::size_t index) const
+{
+    switch (index)
+    {
+        default:
+        case 0: return sf::Vector2f(0, 0);
+        case 1: return sf::Vector2f(5, 0);
+        case 2: return sf::Vector2f(5,5);
+        case 3: return sf::Vector2f(0, 5);
+    }
+}
+
+
