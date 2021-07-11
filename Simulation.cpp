@@ -25,6 +25,23 @@ static void HelpMarker(const char* desc)
     }
 }
 
+Simulation::Simulation()
+        : window{nullptr}
+        , startBoidCount{100}
+        , margin{200} {
+    initWindow();
+    initImGui();
+    initBoids();
+}
+
+Simulation::~Simulation() {
+    delete window;
+}
+
+const bool Simulation::running() const {
+    return window->isOpen();
+}
+
 void Simulation::pollEvents() {
     while(window->pollEvent(ev)) {
         ImGui::SFML::ProcessEvent(ev);
@@ -42,9 +59,10 @@ void Simulation::pollEvents() {
 }
 
 
-void Simulation::updateBoids(UpdateBoidPositionParams params) {
+void Simulation::updateBoids(UpdateBoidPositionParams params, bool showTrail, sf::Time elapsed) {
     for(Boid& b: boids) {
-        b.moveBounded(window->getSize().x, window->getSize().y, margin);
+        b.setShowTrail(showTrail);
+        b.moveBounded(window->getSize().x, window->getSize().y, margin, elapsed);
         b.updateVelocity(boids, params);
     }
 }
@@ -52,7 +70,8 @@ void Simulation::updateBoids(UpdateBoidPositionParams params) {
 void Simulation::update() {
     pollEvents();
 
-    ImGui::SFML::Update(*window, deltaClock.restart());
+    sf::Time elapsed = deltaClock.restart();
+    ImGui::SFML::Update(*window, elapsed);
 
     const ImGuiViewport* main_viewport = ImGui::GetMainViewport();
     int margin = 5;
@@ -69,6 +88,7 @@ void Simulation::update() {
     static int repelDist = 30;
     static float repelWeight = 0.045;
     static int maxSpeed = 13;
+    static bool showTrail = false;
 
     // ID of ##On hides label
     ImGui::PushItemWidth(ImGui::GetWindowWidth());
@@ -106,6 +126,8 @@ void Simulation::update() {
 
     ImGui::PopItemWidth();
 
+    ImGui::Checkbox("Show Trail?", &showTrail);
+
     ImGui::End();
 
     UpdateBoidPositionParams params;
@@ -116,7 +138,7 @@ void Simulation::update() {
     params.repelDist = repelDist;
     params.repelWeight = repelWeight;
     params.maxSpeed = maxSpeed;
-    updateBoids(params);
+    updateBoids(params, showTrail, elapsed);
 }
 
 void Simulation::renderBoids()
@@ -172,21 +194,5 @@ void Simulation::initBoids() {
     }
 }
 
-Simulation::Simulation()
-: window{nullptr}
-, startBoidCount{600}
-, margin{200} {
-    initWindow();
-    initImGui();
-    initBoids();
-}
-
-Simulation::~Simulation() {
-    delete window;
-}
-
-const bool Simulation::running() const {
-    return window->isOpen();
-}
 
 

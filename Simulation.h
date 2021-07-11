@@ -25,7 +25,7 @@ private:
     void initImGui();
     void initBoids();
 
-    void updateBoids(UpdateBoidPositionParams params);
+    void updateBoids(UpdateBoidPositionParams params, bool showTrail, sf::Time elapsed);
     void renderBoids();
 
 public:
