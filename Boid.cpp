@@ -6,73 +6,7 @@
 #include "Boid.h"
 #include "VectorArithmetic.h"
 
-sf::Vector2f Boid::getVelocity() const {
-    return velocity;
-};
-
-void Boid::updateVelocity(const std::vector<Boid> &boids, UpdateBoidPositionParams params) {
-    using namespace VectorArithmetic;
-    sf::Vector2f steer {};
-    sf::Vector2f align, attract, repel;
-    int attractCount = 0;
-    int alignCount = 0;
-    int repelCount = 0;
-
-    for(const Boid& b : boids) {
-        if(&b == this) continue;
-
-        float dist = getDistance(this->getPosition(), b.getPosition());
-
-        if(dist < 1e-2) continue;
-
-        if (dist < params.repelDist) {
-            repelCount++;
-            repel += (getPosition() - b.getPosition()) / (dist * dist);
-        }
-
-        if (dist < params.attractDist) {
-            attractCount++;
-            attract += b.getPosition();
-        }
-
-        if (dist < params.alignDist) {
-            align += b.velocity;
-            alignCount++;
-        }
-    }
-
-    if(repelCount) {
-        repel /= (float) repelCount;
-        setMag(repel, params.maxSpeed);
-        repel -= velocity;
-        repel *= params.repelWeight;
-    }
-
-
-    if(attractCount) {
-        attract /= (float) attractCount; // get average position
-        attract -= getPosition();
-        setMag(attract, params.maxSpeed);
-        attract -= velocity;
-        attract *= params.attractWeight;
-    }
-
-    if(alignCount) {
-        align /= (float) alignCount;
-        setMag(align, params.maxSpeed);
-        align -= velocity;
-        align *= params.alignWeight;
-    }
-
-    sf::Vector2f acceleration {};
-    acceleration = align + repel + attract;
-    steer = acceleration / mass;
-
-    velocity += steer;
-    limit(velocity, params.maxSpeed);
-
-    setDirection(velocity);
-}
+using namespace VectorArithmetic;
 
 Boid::Boid(sf::Vector2f pos, sf::Vector2f v)
 : Arrow(pos, v, sf::Color::Red, 7, 15)
@@ -85,7 +19,104 @@ Boid::Boid(sf::Vector2f pos, sf::Vector2f v)
     m_positionHistory.reserve(MAX_TRAIL_COUNT);
 }
 
-void Boid::moveBounded(unsigned int windowWidth, unsigned int windowHeight, unsigned int margin, sf::Time elapsed) {
+const sf::Vector2f& Boid::getVelocity() const {
+    return velocity;
+}
+
+sf::Vector2f Boid::alignment(const std::vector<Boid> &boids, int maxSpeed, int alignDist, float weight){
+    sf::Vector2f desiredV, deltaV;
+    int neighborCount = 0;
+
+    for(const Boid& b : boids) {
+        if(&b == this) continue;
+        float dist = getDistance(getPosition(), b.getPosition());
+
+        if (dist < alignDist) {
+            neighborCount++;
+            desiredV += b.velocity;
+        }
+    }
+
+    if(neighborCount) {
+        desiredV /= (float) neighborCount;
+        setMag(desiredV, maxSpeed);
+        deltaV = weight * (desiredV - velocity);
+    }
+
+    return deltaV;
+}
+
+sf::Vector2f Boid::repulsion(const std::vector<Boid> &boids, int maxSpeed, int repelDist, float weight) {
+    sf::Vector2f desiredV, deltaV;
+    int neighborCount = 0;
+
+    for(const Boid& b : boids) {
+        if(&b == this) continue;
+        float dist = getDistance(getPosition(), b.getPosition());
+
+        if(dist < 1e-2) continue;
+
+        if (dist < repelDist) {
+            neighborCount++;
+            desiredV += (getPosition() - b.getPosition()) / (dist * dist);
+        }
+    }
+
+    if(neighborCount) {
+        desiredV /= (float) neighborCount;
+        setMag(desiredV, maxSpeed);
+        deltaV = weight * (desiredV - velocity);
+    }
+
+    return deltaV;
+}
+
+sf::Vector2f Boid::cohesion(const std::vector<Boid> &boids, int maxSpeed, int cohesionDist, float weight) {
+    sf::Vector2f averagePosition, desiredV, deltaV;
+    int neighborCount = 0;
+
+    for(const Boid& b : boids) {
+        if(&b == this) continue;
+        float dist = getDistance(getPosition(), b.getPosition());
+
+        if (dist < cohesionDist) {
+            neighborCount++;
+            averagePosition += b.getPosition();
+        }
+    }
+
+    if(neighborCount) {
+        averagePosition /= (float) neighborCount;
+        desiredV = averagePosition - getPosition();
+        setMag(desiredV, maxSpeed);
+        deltaV = weight * (desiredV - velocity);
+    }
+
+    return deltaV;
+}
+
+sf::Vector2f Boid::attractToMouse(const sf::Vector2f& mousePosWorld, float maxSpeed) {
+    sf::Vector2f desiredV = mousePosWorld - getPosition();
+    setMag(desiredV, maxSpeed);
+    return MOUSE_ATTRACTION_FACTOR * (desiredV - velocity);
+}
+
+void Boid::updateVelocity(const std::vector<Boid> &boids, UpdateBoidVelocityParams params) {
+    sf::Vector2f steer, acceleration;
+    float maxSpeed = params.maxSpeed;
+
+    acceleration = alignment(boids, maxSpeed, params.alignDist, params.alignWeight);
+    acceleration += repulsion(boids, maxSpeed, params.repelDist, params.repelWeight);
+    acceleration += cohesion(boids, maxSpeed, params.cohesionDist, params.cohesionWeight);
+    if(params.attractMouse) acceleration += attractToMouse(params.mousePos, maxSpeed);
+
+    steer = acceleration / mass;
+    velocity += steer;
+    limit(velocity, params.maxSpeed);
+    setDirection(velocity);
+}
+
+void Boid::moveBounded(sf::Vector2u windowDim, unsigned int margin, sf::Time elapsed) {
     // record the position
     sf::Color c {255,0,0 };
     m_trailVertices.emplace_back(getPosition(), c);
@@ -112,13 +143,13 @@ void Boid::moveBounded(unsigned int windowWidth, unsigned int windowHeight, unsi
 
     if(getPosition().x < margin) {
         velocity.x += boundingForce;
-    } else if(getPosition().x > windowWidth - margin) {
+    } else if(getPosition().x > windowDim.x - margin) {
         velocity.x -= boundingForce;
     }
 
     if(getPosition().y < margin) {
         velocity.y += boundingForce;
-    } else if(getPosition().y > windowHeight - margin) {
+    } else if(getPosition().y > windowDim.y - margin) {
         velocity.y -= boundingForce;
     }
 }
@@ -134,5 +165,4 @@ void Boid::draw(sf::RenderTarget &target, sf::RenderStates states) const {
 void Boid::setShowTrail(bool showTrail) {
     m_showTrail = showTrail;
 }
-
 

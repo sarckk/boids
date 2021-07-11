@@ -10,11 +10,13 @@
 
 class Simulation {
 private:
+    // SFML stuff
     sf::RenderWindow* window;
     sf::VideoMode videoMode;
-    sf::Event ev;
+    sf::Event ev{};
     sf::Clock deltaClock;
     sf::ContextSettings settings;
+    sf::Vector2i mousePosWindow;
 
     // Boids
     std::vector<Boid> boids;
@@ -25,14 +27,16 @@ private:
     void initImGui();
     void initBoids();
 
-    void updateBoids(UpdateBoidPositionParams params, bool showTrail, sf::Time elapsed);
+    void updateBoids(UpdateBoidVelocityParams params, bool showTrail, sf::Time elapsed);
+    void updateMousePosition();
+    void updateImGui(sf::Time elapsed);
     void renderBoids();
 
 public:
     Simulation();
     virtual ~Simulation();
 
-    const bool running() const;
+    bool running() const;
 
     void pollEvents();
     void update();

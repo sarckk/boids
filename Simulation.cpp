@@ -3,7 +3,7 @@
 //
 
 #include <iostream>
-#include <math.h>
+#include <cmath>
 
 #include <imgui-SFML.h>
 #include <imgui.h>
@@ -38,7 +38,7 @@ Simulation::~Simulation() {
     delete window;
 }
 
-const bool Simulation::running() const {
+bool Simulation::running() const {
     return window->isOpen();
 }
 
@@ -59,86 +59,20 @@ void Simulation::pollEvents() {
 }
 
 
-void Simulation::updateBoids(UpdateBoidPositionParams params, bool showTrail, sf::Time elapsed) {
+void Simulation::updateBoids(UpdateBoidVelocityParams params, bool showTrail, sf::Time elapsed) {
     for(Boid& b: boids) {
         b.setShowTrail(showTrail);
-        b.moveBounded(window->getSize().x, window->getSize().y, margin, elapsed);
         b.updateVelocity(boids, params);
+        b.moveBounded(window->getSize(), margin, elapsed);
     }
 }
 
 void Simulation::update() {
-    pollEvents();
-
     sf::Time elapsed = deltaClock.restart();
-    ImGui::SFML::Update(*window, elapsed);
 
-    const ImGuiViewport* main_viewport = ImGui::GetMainViewport();
-    int margin = 5;
-    ImGui::SetNextWindowPos(ImVec2(main_viewport->WorkPos.x + (1920 - 400 - margin), main_viewport->WorkPos.y),
-                            ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(400, 1080), ImGuiCond_Once);
-
-    ImGui::Begin("Boids Controls");
-
-    static int alignDist = 130;
-    static float alignWeight = 0.160;
-    static int attractDist = 150;
-    static float attractWeight = 0.015;
-    static int repelDist = 30;
-    static float repelWeight = 0.045;
-    static int maxSpeed = 13;
-    static bool showTrail = false;
-
-    // ID of ##On hides label
-    ImGui::PushItemWidth(ImGui::GetWindowWidth());
-
-    ImGui::Text("Align Radius");
-    ImGui::SameLine(); HelpMarker("Each boid will try to align to the average velocity of all boids within adius.");
-    ImGui::SliderInt("##On", &alignDist, 0, 300 );
-
-    ImGui::Text("Align Weight");
-    ImGui::SameLine(); HelpMarker("Decides how abruptly to adjust boid velocity to align with flock. "
-                                  "Ranges from 0 (disable alignment) to 1 (adjust fully).");
-    ImGui::SliderFloat("##1n", &alignWeight, 0, 1 );
-
-    ImGui::Text("Attraction Radius");
-    ImGui::SameLine(); HelpMarker("Each boid will be attracted to the center of mass of all boids within adius.");
-    ImGui::SliderInt("##2n", &attractDist, 0, 300 );
-
-    ImGui::Text("Attraction Weight");
-    ImGui::SameLine(); HelpMarker("Decides how abruptly to adjust boid velocity to steer towards local center of mass. "
-                                  "Ranges from 0 (disable attraction) to 1 (adjust fully).");
-    ImGui::SliderFloat("##3n", &attractWeight, 0, 1 );
-
-    ImGui::Text("Repulsion Radius");
-    ImGui::SameLine(); HelpMarker("Each boid will experience a repulsive force from all boids within adius of itself.");
-    ImGui::SliderInt("##4n", &repelDist, 0, 300 );
-
-    ImGui::Text("Repulsion Weight");
-    ImGui::SameLine(); HelpMarker("Decides how abruptly to adjust boid velocity to steer away from local boids. "
-                                  "Ranges from 0 (disable repulsion) to 1 (adjust fully).");
-    ImGui::SliderFloat("##5n", &repelWeight, 0, 1 );
-
-    ImGui::Text("Flock speed");
-    ImGui::SameLine(); HelpMarker("Max speed at which a boid can travel at.");
-    ImGui::SliderInt("##6n", &maxSpeed, 1, 50 );
-
-    ImGui::PopItemWidth();
-
-    ImGui::Checkbox("Show Trail?", &showTrail);
-
-    ImGui::End();
-
-    UpdateBoidPositionParams params;
-    params.alignDist = alignDist;
-    params.alignWeight = alignWeight;
-    params.attractDist = attractDist;
-    params.attractWeight = attractWeight;
-    params.repelDist = repelDist;
-    params.repelWeight = repelWeight;
-    params.maxSpeed = maxSpeed;
-    updateBoids(params, showTrail, elapsed);
+    pollEvents();
+    updateMousePosition();
+    updateImGui(elapsed);
 }
 
 void Simulation::renderBoids()
@@ -183,7 +117,7 @@ void Simulation::initBoids() {
         int maxV = 10;
         int minV = -10;
         float horiz_speed = std::rand() % (maxV + 1 - minV) + minV;
-        float vert_speed {0};
+        float vert_speed;
         do {
             vert_speed = std::rand() % (maxV + 1 - minV) + minV;
         } while (vert_speed == 0);
@@ -192,6 +126,87 @@ void Simulation::initBoids() {
 
         boids.emplace_back(pos, v);
     }
+}
+
+void Simulation::updateMousePosition() {
+    mousePosWindow = sf::Mouse().getPosition(*this->window);
+}
+
+void Simulation::updateImGui(sf::Time elapsed) {
+    static int alignDist = 130;
+    static float alignWeight = 0.160;
+    static int cohesionDist = 150;
+    static float cohesionWeight = 0.015;
+    static int repelDist = 30;
+    static float repelWeight = 0.045;
+    static int maxSpeed = 13;
+    static bool showTrail = false;
+    static bool attractMouse = false;
+
+    ImGui::SFML::Update(*window, elapsed);
+    const ImGuiViewport* main_viewport = ImGui::GetMainViewport();
+
+    ImGui::SetNextWindowPos(ImVec2(main_viewport->WorkPos.x + (1920 - 400), main_viewport->WorkPos.y),
+                            ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(400, 1080), ImGuiCond_Once);
+
+    ImGui::Begin("Boids Controls");
+
+    // ID of ##On hides label
+    ImGui::PushItemWidth(ImGui::GetWindowWidth());
+
+    ImGui::Text("Align Radius");
+    ImGui::SameLine(); HelpMarker("Each boid will try to align to the average velocity of all boids within adius.");
+    ImGui::SliderInt("##On", &alignDist, 0, 300 );
+
+    ImGui::Text("Align Weight");
+    ImGui::SameLine(); HelpMarker("Decides how abruptly to adjust boid velocity to align with flock. "
+                                  "Ranges from 0 (disable alignment) to 1 (adjust fully).");
+    ImGui::SliderFloat("##1n", &alignWeight, 0, 1 );
+
+    ImGui::Text("Attraction Radius");
+    ImGui::SameLine(); HelpMarker("Each boid will be attracted to the center of mass of all boids within adius.");
+    ImGui::SliderInt("##2n", &cohesionDist, 0, 300 );
+
+    ImGui::Text("Attraction Weight");
+    ImGui::SameLine(); HelpMarker("Decides how abruptly to adjust boid velocity to steer towards local center of mass. "
+                                  "Ranges from 0 (disable attraction) to 1 (adjust fully).");
+    ImGui::SliderFloat("##3n", &cohesionWeight, 0, 1 );
+
+    ImGui::Text("Repulsion Radius");
+    ImGui::SameLine(); HelpMarker("Each boid will experience a repulsive force from all boids within adius of itself.");
+    ImGui::SliderInt("##4n", &repelDist, 0, 300 );
+
+    ImGui::Text("Repulsion Weight");
+    ImGui::SameLine(); HelpMarker("Decides how abruptly to adjust boid velocity to steer away from local boids. "
+                                  "Ranges from 0 (disable repulsion) to 1 (adjust fully).");
+    ImGui::SliderFloat("##5n", &repelWeight, 0, 1 );
+
+    ImGui::Text("Flock speed");
+    ImGui::SameLine(); HelpMarker("Max speed at which a boid can travel at.");
+    ImGui::SliderInt("##6n", &maxSpeed, 1, 50 );
+
+    ImGui::PopItemWidth();
+
+    ImGui::Checkbox("Show Trail?", &showTrail);
+
+    ImGui::Checkbox("Attract to mouse", &attractMouse);
+
+    ImGui::End();
+
+    UpdateBoidVelocityParams params;
+    params.alignDist = alignDist;
+    params.alignWeight = alignWeight;
+    params.cohesionDist = cohesionDist;
+    params.cohesionWeight = cohesionWeight;
+    params.repelDist = repelDist;
+    params.repelWeight = repelWeight;
+    params.maxSpeed = maxSpeed;
+
+    params.attractMouse = attractMouse;
+    params.mousePos = window->mapPixelToCoords(mousePosWindow);
+
+    updateBoids(params, showTrail, elapsed);
 }
 
 

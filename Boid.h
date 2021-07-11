@@ -7,6 +7,7 @@
 
 #define MAX_TRAIL_COUNT 40
 #define AVERAGE_TIME_ELAPSED_SECONDS 0.02f
+#define MOUSE_ATTRACTION_FACTOR 0.1f
 
 #include <SFML/Graphics.hpp>
 #include <SFML/System.hpp>
@@ -15,14 +16,16 @@
 
 #include "Arrow.h"
 
-struct UpdateBoidPositionParams {
+struct UpdateBoidVelocityParams {
     int alignDist {};
     float alignWeight {};
-    int attractDist {};
-    float attractWeight {};
+    int cohesionDist {};
+    float cohesionWeight {};
     int repelDist {};
     float repelWeight {};
     int maxSpeed {};
+    bool attractMouse {};
+    sf::Vector2f mousePos {};
 };
 
 class Boid : public Arrow {
@@ -30,29 +33,32 @@ private:
     struct PositionHistory {
         sf::Time lifetime;
 
-        PositionHistory(const sf::Time& time): lifetime(time)
+        explicit PositionHistory(const sf::Time& time): lifetime(time)
         {}
     };
 
     sf::Vector2f velocity;
-    int speed;
     float mass;
-    int angle;
     bool m_showTrail;
     sf::Time m_trailLifetime;
     std::vector<sf::Vertex> m_trailVertices;
     std::vector<PositionHistory> m_positionHistory;
 
-    virtual void draw(sf::RenderTarget &target, sf::RenderStates states) const override;
+    sf::Vector2f alignment(const std::vector<Boid> &boids, int maxSpeed, int alignDist, float weight);
+    sf::Vector2f repulsion(const std::vector<Boid> &boids, int maxSpeed, int repulsionDist, float weight);
+    sf::Vector2f cohesion(const std::vector<Boid> &boids, int maxSpeed, int cohesionDist, float weight);
+    sf::Vector2f attractToMouse(const sf::Vector2f& mousePosWorld, float maxSpeed);
+
+    void draw(sf::RenderTarget &target, sf::RenderStates states) const override;
 
 public:
     explicit Boid(sf::Vector2f position, sf::Vector2f velocity);
 
-    void updateVelocity(const std::vector<Boid>& boids, UpdateBoidPositionParams params);
-    void moveBounded(unsigned int windowWidth, unsigned int windowHeight, unsigned int margin, sf::Time elapsed);
+    void updateVelocity(const std::vector<Boid>& boids, UpdateBoidVelocityParams params);
+    void moveBounded(sf::Vector2u windowDim, unsigned int margin, sf::Time elapsed);
 
     void setShowTrail(bool showTrail);
-    sf::Vector2f getVelocity() const;
+    const sf::Vector2f& getVelocity() const;
 };
 
 
