@@ -8,6 +8,7 @@
 
 #include "Boid.h"
 
+
 class Simulation {
 private:
     // SFML stuff

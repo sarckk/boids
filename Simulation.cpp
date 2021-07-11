@@ -27,7 +27,7 @@ static void HelpMarker(const char* desc)
 
 Simulation::Simulation()
         : window{nullptr}
-        , startBoidCount{100}
+        , startBoidCount{200}
         , margin{200} {
     initWindow();
     initImGui();
@@ -141,7 +141,8 @@ void Simulation::updateImGui(sf::Time elapsed) {
     static float repelWeight = 0.045;
     static int maxSpeed = 13;
     static bool showTrail = false;
-    static bool attractMouse = false;
+    static int mouseModifier = MouseModifier::None;
+    static int mouseEffectDist = 300;
 
     ImGui::SFML::Update(*window, elapsed);
     const ImGuiViewport* main_viewport = ImGui::GetMainViewport();
@@ -190,7 +191,14 @@ void Simulation::updateImGui(sf::Time elapsed) {
 
     ImGui::Checkbox("Show Trail?", &showTrail);
 
-    ImGui::Checkbox("Attract to mouse", &attractMouse);
+    ImGui::Text("Mouse modifier");
+    ImGui::RadioButton("None", &mouseModifier, MouseModifier::None); ImGui::SameLine();
+    ImGui::RadioButton("Avoid", &mouseModifier, MouseModifier::Avoid); ImGui::SameLine();
+    ImGui::RadioButton("Attract", &mouseModifier, MouseModifier::Attract);
+    if(mouseModifier != MouseModifier::None) {
+        ImGui::Text("Mouse effect distance");
+        ImGui::SliderInt("##7n", &mouseEffectDist, 100, 1000 );
+    }
 
     ImGui::End();
 
@@ -203,7 +211,8 @@ void Simulation::updateImGui(sf::Time elapsed) {
     params.repelWeight = repelWeight;
     params.maxSpeed = maxSpeed;
 
-    params.attractMouse = attractMouse;
+    params.mouseEffectDist = mouseEffectDist;
+    params.mouseModifier = static_cast<MouseModifier>(mouseModifier);
     params.mousePos = window->mapPixelToCoords(mousePosWindow);
 
     updateBoids(params, showTrail, elapsed);

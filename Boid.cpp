@@ -95,12 +95,6 @@ sf::Vector2f Boid::cohesion(const std::vector<Boid> &boids, int maxSpeed, int co
     return deltaV;
 }
 
-sf::Vector2f Boid::attractToMouse(const sf::Vector2f& mousePosWorld, float maxSpeed) {
-    sf::Vector2f desiredV = mousePosWorld - getPosition();
-    setMag(desiredV, maxSpeed);
-    return MOUSE_ATTRACTION_FACTOR * (desiredV - velocity);
-}
-
 void Boid::updateVelocity(const std::vector<Boid> &boids, UpdateBoidVelocityParams params) {
     sf::Vector2f steer, acceleration;
     float maxSpeed = params.maxSpeed;
@@ -108,7 +102,16 @@ void Boid::updateVelocity(const std::vector<Boid> &boids, UpdateBoidVelocityPara
     acceleration = alignment(boids, maxSpeed, params.alignDist, params.alignWeight);
     acceleration += repulsion(boids, maxSpeed, params.repelDist, params.repelWeight);
     acceleration += cohesion(boids, maxSpeed, params.cohesionDist, params.cohesionWeight);
-    if(params.attractMouse) acceleration += attractToMouse(params.mousePos, maxSpeed);
+
+    if(params.mouseModifier != MouseModifier::None) {
+        sf::Vector2f desiredV;
+        if(params.mouseModifier == MouseModifier::Attract) desiredV = params.mousePos - getPosition();
+        else if(params.mouseModifier == MouseModifier::Avoid) desiredV = getPosition() - params.mousePos;
+        if(magnitude(desiredV) < params.mouseEffectDist) {
+            setMag(desiredV, maxSpeed);
+            acceleration+= MOUSE_ATTRACTION_FACTOR * (desiredV - velocity);
+        }
+    }
 
     steer = acceleration / mass;
     velocity += steer;

@@ -16,6 +16,12 @@
 
 #include "Arrow.h"
 
+enum MouseModifier {
+    None,
+    Avoid,
+    Attract
+};
+
 struct UpdateBoidVelocityParams {
     int alignDist {};
     float alignWeight {};
@@ -24,7 +30,10 @@ struct UpdateBoidVelocityParams {
     int repelDist {};
     float repelWeight {};
     int maxSpeed {};
-    bool attractMouse {};
+
+    // mouse stuff
+    int mouseEffectDist;
+    MouseModifier mouseModifier {};
     sf::Vector2f mousePos {};
 };
 
@@ -47,7 +56,6 @@ private:
     sf::Vector2f alignment(const std::vector<Boid> &boids, int maxSpeed, int alignDist, float weight);
     sf::Vector2f repulsion(const std::vector<Boid> &boids, int maxSpeed, int repulsionDist, float weight);
     sf::Vector2f cohesion(const std::vector<Boid> &boids, int maxSpeed, int cohesionDist, float weight);
-    sf::Vector2f attractToMouse(const sf::Vector2f& mousePosWorld, float maxSpeed);
 
     void draw(sf::RenderTarget &target, sf::RenderStates states) const override;
 
