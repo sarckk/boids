@@ -2,8 +2,7 @@
 // Created by Yong Hoon Shin on 06/07/2021.
 //
 
-#include <iostream>
-#include <cmath>
+#include <random>
 
 #include <imgui-SFML.h>
 #include <imgui.h>
@@ -25,13 +24,15 @@ static void HelpMarker(const char* desc)
     }
 }
 
+const sf::Color Simulation::LIGHT_BOID_COLOR = sf::Color{75, 113, 188 };
+const sf::Color Simulation::DARK_BOID_COLOR = sf::Color{ 144, 211, 243 };
+
 Simulation::Simulation()
         : window{nullptr}
-        , startBoidCount{200}
-        , margin{200} {
+        , m_margin{SCREEN_MARGIN} {
     initWindow();
     initImGui();
-    initBoids();
+    addNewBoids(START_BOID_COUNT, false);
 }
 
 Simulation::~Simulation() {
@@ -58,81 +59,15 @@ void Simulation::pollEvents() {
     }
 }
 
-
 void Simulation::updateBoids(UpdateBoidVelocityParams params, bool showTrail, sf::Time elapsed) {
-    for(Boid& b: boids) {
+    for(Boid& b: m_boids) {
         b.setShowTrail(showTrail);
-        b.updateVelocity(boids, params);
-        b.moveBounded(window->getSize(), margin, elapsed);
+        b.updateVelocity(m_boids, params);
+        b.moveBounded(window->getSize(), m_margin, elapsed);
     }
 }
 
-void Simulation::update() {
-    sf::Time elapsed = deltaClock.restart();
-
-    pollEvents();
-    updateMousePosition();
-    updateImGui(elapsed);
-}
-
-void Simulation::renderBoids()
-{
-    for (const Boid& b : boids) {
-        window->draw(b);
-    }
-}
-
-void Simulation::render() {
-    window->clear();
-    renderBoids();
-    ImGui::SFML::Render(*window);
-    window->display();
-}
-
-void Simulation::initWindow() {
-    settings.antialiasingLevel = 8;
-    videoMode = sf::VideoMode(1920, 1080, 32);
-    window = new sf::RenderWindow(videoMode, "Boids Simulation",
-                                        sf::Style::Titlebar | sf::Style::Close,
-                                        settings);
-    window->setFramerateLimit(60);
-}
-
-void Simulation::initImGui(){
-    ImGui::SFML::Init(*window);
-    deltaClock = sf::Clock{ };
-
-    constexpr auto scale_factor = 2.0;
-    ImGui::GetIO().FontGlobalScale = scale_factor;
-}
-
-void Simulation::initBoids() {
-    for(int i = 0; i < startBoidCount; i++) {
-        // spawn a boid
-        sf::Vector2f pos {
-            (float)(rand() % window->getSize().x),
-            (float)(rand() % window->getSize().y),
-        };
-
-        int maxV = 10;
-        int minV = -10;
-        float horiz_speed = std::rand() % (maxV + 1 - minV) + minV;
-        float vert_speed;
-        do {
-            vert_speed = std::rand() % (maxV + 1 - minV) + minV;
-        } while (vert_speed == 0);
-
-        sf::Vector2f v {horiz_speed, vert_speed};
-
-        boids.emplace_back(pos, v);
-    }
-}
-
-void Simulation::updateMousePosition() {
-    mousePosWindow = sf::Mouse().getPosition(*this->window);
-}
-
-void Simulation::updateImGui(sf::Time elapsed) {
+UpdateBoidVelocityParams Simulation::updateImGui(sf::Time elapsed, bool* showTrail, int* boidCount, bool* randomizeSize) {
     static int alignDist = 130;
     static float alignWeight = 0.160;
     static int cohesionDist = 150;
@@ -140,7 +75,6 @@ void Simulation::updateImGui(sf::Time elapsed) {
     static int repelDist = 30;
     static float repelWeight = 0.045;
     static int maxSpeed = 13;
-    static bool showTrail = false;
     static int mouseModifier = MouseModifier::None;
     static int mouseEffectDist = 300;
 
@@ -189,7 +123,8 @@ void Simulation::updateImGui(sf::Time elapsed) {
 
     ImGui::PopItemWidth();
 
-    ImGui::Checkbox("Show Trail?", &showTrail);
+    ImGui::Checkbox("Show Trail?", showTrail);
+    ImGui::Checkbox("Randomize mass?", randomizeSize);
 
     ImGui::Text("Mouse modifier");
     ImGui::RadioButton("None", &mouseModifier, MouseModifier::None); ImGui::SameLine();
@@ -198,6 +133,11 @@ void Simulation::updateImGui(sf::Time elapsed) {
     if(mouseModifier != MouseModifier::None) {
         ImGui::Text("Mouse effect distance");
         ImGui::SliderInt("##7n", &mouseEffectDist, 100, 1000 );
+    }
+
+    if(ImGui::InputInt("Boid count", boidCount)) {
+        if(*boidCount < 0) *boidCount = 0;
+        if(*boidCount > 600) *boidCount = 600;
     }
 
     ImGui::End();
@@ -215,8 +155,110 @@ void Simulation::updateImGui(sf::Time elapsed) {
     params.mouseModifier = static_cast<MouseModifier>(mouseModifier);
     params.mousePos = window->mapPixelToCoords(mousePosWindow);
 
-    updateBoids(params, showTrail, elapsed);
+    return params;
 }
+
+void Simulation::updateMousePosition() {
+    mousePosWindow = sf::Mouse().getPosition(*this->window);
+}
+
+void Simulation::updateBoidCount(int newCount, bool randomizeSize) {
+    if(newCount < m_boids.size()) {
+        m_boids.erase(m_boids.end() - (m_boids.size() - newCount), m_boids.end());
+    } else if(newCount > m_boids.size()){
+        // add boids until we reach the desired size
+        addNewBoids(newCount - m_boids.size(), randomizeSize);
+    }
+}
+
+void Simulation::update() {
+    static bool showTrail = false;
+    static int boidCount = m_boids.size();
+    static bool randomizeSize = false;
+
+    sf::Time elapsed = deltaClock.restart();
+
+    pollEvents();
+    updateMousePosition();
+    UpdateBoidVelocityParams params = updateImGui(elapsed, &showTrail, &boidCount, &randomizeSize);
+    updateBoids(params, showTrail, elapsed);
+    updateBoidCount(boidCount, randomizeSize);
+}
+
+
+void Simulation::renderBoids()
+{
+    for (const Boid& b : m_boids) {
+        window->draw(b);
+    }
+}
+
+void Simulation::render() {
+    window->clear();
+    renderBoids();
+    ImGui::SFML::Render(*window);
+    window->display();
+}
+
+void Simulation::initWindow() {
+    settings.antialiasingLevel = 8;
+    videoMode = sf::VideoMode(1920, 1080, 32);
+    window = new sf::RenderWindow(videoMode, "Boids Simulation",
+                                        sf::Style::Titlebar | sf::Style::Close,
+                                        settings);
+    window->setFramerateLimit(60);
+}
+
+void Simulation::initImGui(){
+    ImGui::SFML::Init(*window);
+    deltaClock = sf::Clock{ };
+
+    constexpr auto scale_factor = 2.0;
+    ImGui::GetIO().FontGlobalScale = scale_factor;
+}
+
+static int rand_in_range(int min, int max) {
+    return std::rand() % (max + 1 - min) + min;
+}
+
+
+void Simulation::addNewBoids(int count, bool randomizeSize) {
+    for(int i = 0; i < count; i++) {
+        // spawn a boid
+        sf::Vector2f pos {
+            (float)(rand() % window->getSize().x),
+            (float)(rand() % window->getSize().y),
+        };
+
+        float horiz_speed = rand_in_range(MIN_INIT_VELOCITY_XY, MAX_INIT_VELOCITY_XY);
+        float vert_speed;
+        do {
+            vert_speed = rand_in_range(MIN_INIT_VELOCITY_XY, MAX_INIT_VELOCITY_XY);
+        } while (vert_speed == 0);
+
+        sf::Vector2f v {horiz_speed, vert_speed};
+
+        int newIndex = m_boids.size();
+        sf::Color c = newIndex % 2 == 0 ? DARK_BOID_COLOR : LIGHT_BOID_COLOR;
+
+        float height;
+        float width;
+
+        if(!randomizeSize) {
+            height = DEFAULT_BOID_HEIGHT;
+            width = DEFAULT_BOID_WIDTH;
+        } else {
+            height = rand_in_range(MIN_BOID_HEIGHT, MAX_BOID_HEIGHT);
+            width = round(height * 1.75); // roughly to maintain dimension
+        }
+
+        float mass = randomizeSize ? (height / DEFAULT_BOID_HEIGHT) * 1 : 1;
+
+        m_boids.emplace_back(pos, v, c, height, width, mass);
+    }
+}
+
+
 
 
 

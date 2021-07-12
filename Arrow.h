@@ -9,13 +9,14 @@
 
 class Arrow : public sf::Drawable, public sf::Transformable {
 public:
-    explicit Arrow(sf::Vector2f position, sf::Vector2f direction, sf::Color color, int height, int width);
+    explicit Arrow(sf::Vector2f position, sf::Vector2f direction, sf::Color color, float height, float width);
     void setDirection(sf::Vector2f direction);
+    void setColor(sf::Color color);
 
-private:
+protected:
     sf::ConvexShape m_arrow;
-    int m_height;
-    int m_width;
+    float m_height;
+    float m_width;
     sf::Vector2f m_position;
     sf::Vector2f m_direction;
     sf::Color m_color;

@@ -6,7 +6,7 @@
 #include "Arrow.h"
 #include "VectorArithmetic.h"
 
-Arrow::Arrow(sf::Vector2f position, sf::Vector2f direction, sf::Color color, int height, int width)
+Arrow::Arrow(sf::Vector2f position, sf::Vector2f direction, sf::Color color, float height, float width)
 : m_arrow()
 , m_direction(direction)
 , m_color(color)
@@ -36,4 +36,9 @@ void Arrow::setDirection(sf::Vector2f direction) {
     float polarAngle = atan2(direction.y, direction.x) * 180 / M_PI;
     m_arrow.setRotation(polarAngle);
 }
+
+void Arrow::setColor(sf::Color color) {
+    m_arrow.setFillColor(color);
+}
+
 

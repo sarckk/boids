@@ -2,16 +2,16 @@
 // Created by Yong Hoon Shin on 06/07/2021.
 //
 
-#include <iostream>
+#include <cmath>
 #include "Boid.h"
 #include "VectorArithmetic.h"
 
 using namespace VectorArithmetic;
 
-Boid::Boid(sf::Vector2f pos, sf::Vector2f v)
-: Arrow(pos, v, sf::Color::Red, 7, 15)
-, velocity(v)
-, mass(1)
+Boid::Boid(const sf::Vector2f& pos, const sf::Vector2f& v, const sf::Color& c, float height, float width, float mass = 1)
+: Arrow(pos, v, c, height, width)
+, m_velocity(v)
+, m_mass(mass)
 , m_showTrail(false)
 , m_trailLifetime(sf::seconds(AVERAGE_TIME_ELAPSED_SECONDS * MAX_TRAIL_COUNT))
 {
@@ -20,10 +20,10 @@ Boid::Boid(sf::Vector2f pos, sf::Vector2f v)
 }
 
 const sf::Vector2f& Boid::getVelocity() const {
-    return velocity;
+    return m_velocity;
 }
 
-sf::Vector2f Boid::alignment(const std::vector<Boid> &boids, int maxSpeed, int alignDist, float weight){
+sf::Vector2f Boid::alignment(const std::vector<Boid>& boids, float maxSpeed, int alignDist, float weight){
     sf::Vector2f desiredV, deltaV;
     int neighborCount = 0;
 
@@ -33,20 +33,20 @@ sf::Vector2f Boid::alignment(const std::vector<Boid> &boids, int maxSpeed, int a
 
         if (dist < alignDist) {
             neighborCount++;
-            desiredV += b.velocity;
+            desiredV += b.m_velocity;
         }
     }
 
     if(neighborCount) {
         desiredV /= (float) neighborCount;
         setMag(desiredV, maxSpeed);
-        deltaV = weight * (desiredV - velocity);
+        deltaV = weight * (desiredV - m_velocity);
     }
 
     return deltaV;
 }
 
-sf::Vector2f Boid::repulsion(const std::vector<Boid> &boids, int maxSpeed, int repelDist, float weight) {
+sf::Vector2f Boid::repulsion(const std::vector<Boid>& boids, float maxSpeed, int repelDist, float weight) {
     sf::Vector2f desiredV, deltaV;
     int neighborCount = 0;
 
@@ -65,13 +65,13 @@ sf::Vector2f Boid::repulsion(const std::vector<Boid> &boids, int maxSpeed, int r
     if(neighborCount) {
         desiredV /= (float) neighborCount;
         setMag(desiredV, maxSpeed);
-        deltaV = weight * (desiredV - velocity);
+        deltaV = weight * (desiredV - m_velocity);
     }
 
     return deltaV;
 }
 
-sf::Vector2f Boid::cohesion(const std::vector<Boid> &boids, int maxSpeed, int cohesionDist, float weight) {
+sf::Vector2f Boid::cohesion(const std::vector<Boid>& boids, float maxSpeed, int cohesionDist, float weight) {
     sf::Vector2f averagePosition, desiredV, deltaV;
     int neighborCount = 0;
 
@@ -89,13 +89,13 @@ sf::Vector2f Boid::cohesion(const std::vector<Boid> &boids, int maxSpeed, int co
         averagePosition /= (float) neighborCount;
         desiredV = averagePosition - getPosition();
         setMag(desiredV, maxSpeed);
-        deltaV = weight * (desiredV - velocity);
+        deltaV = weight * (desiredV - m_velocity);
     }
 
     return deltaV;
 }
 
-void Boid::updateVelocity(const std::vector<Boid> &boids, UpdateBoidVelocityParams params) {
+void Boid::updateVelocity(const std::vector<Boid>& boids, UpdateBoidVelocityParams params) {
     sf::Vector2f steer, acceleration;
     float maxSpeed = params.maxSpeed;
 
@@ -109,20 +109,19 @@ void Boid::updateVelocity(const std::vector<Boid> &boids, UpdateBoidVelocityPara
         else if(params.mouseModifier == MouseModifier::Avoid) desiredV = getPosition() - params.mousePos;
         if(magnitude(desiredV) < params.mouseEffectDist) {
             setMag(desiredV, maxSpeed);
-            acceleration+= MOUSE_ATTRACTION_FACTOR * (desiredV - velocity);
+            acceleration+= MOUSE_ATTRACTION_FACTOR * (desiredV - m_velocity);
         }
     }
 
-    steer = acceleration / mass;
-    velocity += steer;
-    limit(velocity, params.maxSpeed);
-    setDirection(velocity);
+    steer = acceleration / m_mass;
+    m_velocity += steer;
+    limit(m_velocity, params.maxSpeed);
+    setDirection(m_velocity);
 }
 
 void Boid::moveBounded(sf::Vector2u windowDim, unsigned int margin, sf::Time elapsed) {
     // record the position
-    sf::Color c {255,0,0 };
-    m_trailVertices.emplace_back(getPosition(), c);
+    m_trailVertices.emplace_back(getPosition(), m_color);
     m_positionHistory.emplace_back(m_trailLifetime);
 
     if(m_trailVertices.size() > MAX_TRAIL_COUNT) {
@@ -140,24 +139,24 @@ void Boid::moveBounded(sf::Vector2u windowDim, unsigned int margin, sf::Time ela
         m_trailVertices[i].color.a = static_cast<sf::Uint8>(ratio * 255);
     }
 
-    move(velocity);
+    move(m_velocity);
 
     int boundingForce = 1;
 
     if(getPosition().x < margin) {
-        velocity.x += boundingForce;
+        m_velocity.x += boundingForce;
     } else if(getPosition().x > windowDim.x - margin) {
-        velocity.x -= boundingForce;
+        m_velocity.x -= boundingForce;
     }
 
     if(getPosition().y < margin) {
-        velocity.y += boundingForce;
+        m_velocity.y += boundingForce;
     } else if(getPosition().y > windowDim.y - margin) {
-        velocity.y -= boundingForce;
+        m_velocity.y -= boundingForce;
     }
 }
 
-void Boid::draw(sf::RenderTarget &target, sf::RenderStates states) const {
+void Boid::draw(sf::RenderTarget& target, sf::RenderStates states) const {
     Arrow::draw(target, states);
 
     // now draw trails
@@ -168,4 +167,6 @@ void Boid::draw(sf::RenderTarget &target, sf::RenderStates states) const {
 void Boid::setShowTrail(bool showTrail) {
     m_showTrail = showTrail;
 }
+
+
 

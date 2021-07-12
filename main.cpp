@@ -1,4 +1,5 @@
 #include <cmath>
+#include <iostream>
 #include <imgui-SFML.h>
 
 #include "Simulation.h"
