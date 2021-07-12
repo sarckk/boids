@@ -2,7 +2,7 @@
 // Created by Yong Hoon Shin on 06/07/2021.
 //
 
-#include <cmath>
+#include <assert.h>
 #include "Boid.h"
 #include "VectorArithmetic.h"
 
@@ -13,10 +13,8 @@ Boid::Boid(const sf::Vector2f& pos, const sf::Vector2f& v, const sf::Color& c, f
 , m_velocity(v)
 , m_mass(mass)
 , m_showTrail(false)
-, m_trailLifetime(sf::seconds(AVERAGE_TIME_ELAPSED_SECONDS * MAX_TRAIL_COUNT))
 {
     m_trailVertices.reserve(MAX_TRAIL_COUNT);
-    m_positionHistory.reserve(MAX_TRAIL_COUNT);
 }
 
 const sf::Vector2f& Boid::getVelocity() const {
@@ -119,24 +117,19 @@ void Boid::updateVelocity(const std::vector<Boid>& boids, UpdateBoidVelocityPara
     setDirection(m_velocity);
 }
 
-void Boid::moveBounded(sf::Vector2u windowDim, unsigned int margin, sf::Time elapsed) {
+void Boid::moveBounded(sf::Vector2u windowDim, unsigned int margin) {
     // record the position
-    m_trailVertices.emplace_back(getPosition(), m_color);
-    m_positionHistory.emplace_back(m_trailLifetime);
-
-    if(m_trailVertices.size() > MAX_TRAIL_COUNT) {
+    if(m_trailVertices.size() == MAX_TRAIL_COUNT) {
         m_trailVertices.erase(m_trailVertices.begin());
-        m_positionHistory.erase(m_positionHistory.begin());
     }
 
-    // update alphas
-    for (std::size_t i = 0; i < m_positionHistory.size(); ++i)
-    {
-        PositionHistory& pHistory = m_positionHistory[i];
-        pHistory.lifetime -= elapsed;
+    m_trailVertices.emplace_back(getPosition(), m_color);
 
-        float ratio = pHistory.lifetime.asSeconds() / m_trailLifetime.asSeconds();
-        m_trailVertices[i].color.a = static_cast<sf::Uint8>(ratio * 255);
+    // update alphas
+    for (std::size_t i = 0; i < m_trailVertices.size(); i++)
+    {
+        float ratio = (float) i / MAX_TRAIL_COUNT;
+        m_trailVertices[i].color.a = static_cast<sf::Uint8>(ratio * 255 * 0.3);
     }
 
     move(m_velocity);

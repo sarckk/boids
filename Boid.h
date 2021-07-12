@@ -36,25 +36,15 @@ struct UpdateBoidVelocityParams {
 
 class Boid : public Arrow {
 private:
-    constexpr static int    MAX_TRAIL_COUNT = 90;
-    constexpr static float  AVERAGE_TIME_ELAPSED_SECONDS = 0.02f;
+    constexpr static int    MAX_TRAIL_COUNT = 70;
     constexpr static float  MOUSE_ATTRACTION_FACTOR = 0.1f;
     constexpr static int    NEAR_NEIGHBOR_RADIUS = 50;
 
 private:
-    struct PositionHistory {
-        sf::Time lifetime;
-
-        explicit PositionHistory(const sf::Time& time): lifetime(time)
-        {}
-    };
-
     sf::Vector2f m_velocity;
     float m_mass;
     bool m_showTrail;
-    sf::Time m_trailLifetime;
     std::vector<sf::Vertex> m_trailVertices;
-    std::vector<PositionHistory> m_positionHistory;
 
     sf::Vector2f alignment(const std::vector<Boid> &boids, float maxSpeed, int alignDist, float weight);
     sf::Vector2f repulsion(const std::vector<Boid> &boids, float maxSpeed, int repulsionDist, float weight);
@@ -67,7 +57,7 @@ public:
                   float height, float width, float mass);
 
     void updateVelocity(const std::vector<Boid>& boids, UpdateBoidVelocityParams params);
-    void moveBounded(sf::Vector2u windowDim, unsigned int margin, sf::Time elapsed);
+    void moveBounded(sf::Vector2u windowDim, unsigned int margin);
 
     void setShowTrail(bool showTrail);
     const sf::Vector2f& getVelocity() const;

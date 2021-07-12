@@ -46,7 +46,7 @@ private:
     void addNewBoids(int count, bool randomizeSize);
 
     void updateBoidCount(int newCount, bool randomizeSize);
-    void updateBoids(UpdateBoidVelocityParams params, bool showTrail, sf::Time elapsed);
+    void updateBoids(UpdateBoidVelocityParams params, bool showTrail);
     void updateMousePosition();
     UpdateBoidVelocityParams updateImGui(sf::Time elapsed, bool* showTrail, int* boidCount, bool* randomizeSize);
     void renderBoids();

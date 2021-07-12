@@ -59,11 +59,11 @@ void Simulation::pollEvents() {
     }
 }
 
-void Simulation::updateBoids(UpdateBoidVelocityParams params, bool showTrail, sf::Time elapsed) {
+void Simulation::updateBoids(UpdateBoidVelocityParams params, bool showTrail) {
     for(Boid& b: m_boids) {
         b.setShowTrail(showTrail);
         b.updateVelocity(m_boids, params);
-        b.moveBounded(window->getSize(), m_margin, elapsed);
+        b.moveBounded(window->getSize(), m_margin);
     }
 }
 
@@ -181,7 +181,7 @@ void Simulation::update() {
     pollEvents();
     updateMousePosition();
     UpdateBoidVelocityParams params = updateImGui(elapsed, &showTrail, &boidCount, &randomizeSize);
-    updateBoids(params, showTrail, elapsed);
+    updateBoids(params, showTrail);
     updateBoidCount(boidCount, randomizeSize);
 }
 
