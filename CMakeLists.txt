@@ -5,7 +5,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 add_subdirectory(dependencies)
 
-set(SOURCE_FILES main.cpp Simulation.cpp Simulation.h Boid.cpp Boid.h Arrow.cpp Arrow.h VectorArithmetic.cpp VectorArithmetic.h)
+set(SOURCE_FILES main.cpp Simulation.cpp Simulation.h Boid.cpp Boid.h Arrow.cpp Arrow.h VectorArithmetic.cpp VectorArithmetic.h SpatialHashGrid.cpp SpatialHashGrid.h)
 add_executable(boids ${SOURCE_FILES})
 include_directories(/usr/local/include)
 

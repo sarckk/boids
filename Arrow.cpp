@@ -1,14 +1,12 @@
-//
-// Created by Yong Hoon Shin on 09/07/2021.
-//
-
 #include <cmath>
 #include "Arrow.h"
 #include "VectorArithmetic.h"
 
+using namespace VectorArithmetic;
+
 Arrow::Arrow(sf::Vector2f position, sf::Vector2f direction, sf::Color color, float height, float width)
 : m_arrow()
-, m_direction(direction)
+, m_direction(normalizeCopy(direction))
 , m_color(color)
 , m_height(height)
 , m_width(width)
@@ -32,8 +30,8 @@ void Arrow::draw(sf::RenderTarget &target, sf::RenderStates states) const {
 }
 
 void Arrow::setDirection(sf::Vector2f direction) {
-    VectorArithmetic::normalize(direction);
-    float polarAngle = atan2(direction.y, direction.x) * 180 / M_PI;
+    m_direction = normalizeCopy(direction);
+    float polarAngle = atan2(m_direction.y, m_direction.x) * 180 / M_PI;
     m_arrow.setRotation(polarAngle);
 }
 

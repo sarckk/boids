@@ -1,8 +1,6 @@
-//
-// Created by Yong Hoon Shin on 06/07/2021.
-//
-
 #include <random>
+#include <iostream>
+#include <chrono>
 
 #include <imgui-SFML.h>
 #include <imgui.h>
@@ -24,15 +22,29 @@ static void HelpMarker(const char* desc)
     }
 }
 
+static int rand_in_range(int min, int max) {
+    return std::rand() % (max + 1 - min) + min;
+}
+
 const sf::Color Simulation::LIGHT_BOID_COLOR = sf::Color{75, 113, 188 };
-const sf::Color Simulation::DARK_BOID_COLOR = sf::Color{ 144, 211, 243 };
+const sf::Color Simulation::DARK_BOID_COLOR  = sf::Color{ 144, 211, 243 };
+const sf::Color Simulation::PREDATOR_COLOR   = sf::Color{ 210, 48, 48 };
 
 Simulation::Simulation()
-        : window{nullptr}
-        , m_margin{SCREEN_MARGIN} {
+: window(nullptr)
+, m_margin(SCREEN_MARGIN)
+, m_boidCount(START_BOID_COUNT)
+, m_showTrail(false)
+, m_randomizeSize(false)
+, m_mouseModifier(MouseModifier::None)
+, m_mouseEffectDist(300)
+{
+
     initWindow();
     initImGui();
-    addNewBoids(START_BOID_COUNT, false);
+
+    m_grid = SpatialHashGrid { window->getSize(), 102 };
+    addBoids(START_BOID_COUNT, false);
 }
 
 Simulation::~Simulation() {
@@ -60,129 +72,172 @@ void Simulation::pollEvents() {
 }
 
 void Simulation::updateBoids(UpdateBoidVelocityParams params, bool showTrail) {
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+
     for(Boid& b: m_boids) {
         b.setShowTrail(showTrail);
-        b.updateVelocity(m_boids, params);
-        b.moveBounded(window->getSize(), m_margin);
+        auto s = m_grid.radiusSearch(&b, params.perceptionRadius);
+        b.updateVelocity(
+            s
+            ,m_grid.radiusSearch(&b, params.separationRadius)
+            ,params
+        );
+        b.move(1);
+        m_grid.updateBoid(&b);
     }
+
+//    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+//    std::cout << "Time taken to update all boids: " << std::chrono::duration_cast<std::chrono::milliseconds> (end - begin).count() << "[ms]" << std::endl;
 }
 
-UpdateBoidVelocityParams Simulation::updateImGui(sf::Time elapsed, bool* showTrail, int* boidCount, bool* randomizeSize) {
-    static int alignDist = 130;
-    static float alignWeight = 0.160;
-    static int cohesionDist = 150;
-    static float cohesionWeight = 0.015;
-    static int repelDist = 30;
-    static float repelWeight = 0.045;
-    static int maxSpeed = 13;
-    static int mouseModifier = MouseModifier::None;
-    static int mouseEffectDist = 300;
+UpdateBoidVelocityParams Simulation::updateImGui(sf::Time elapsed) {
+    static int perceptionRadius = 90;
+    static float alignWeight = 0.351;
+    static float cohesionWeight = 0.053;
+    static int separationRadius = 87;
+    static float separationWeight = 0.075;
+    static float maxSpeed = 15;
 
     ImGui::SFML::Update(*window, elapsed);
     const ImGuiViewport* main_viewport = ImGui::GetMainViewport();
 
-    ImGui::SetNextWindowPos(ImVec2(main_viewport->WorkPos.x + (1920 - 400), main_viewport->WorkPos.y),
+    ImGui::SetNextWindowPos(ImVec2(main_viewport->WorkPos.x + (WIN_WIDTH - IMGUI_WIDTH), main_viewport->WorkPos.y),
                             ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(400, 1080), ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(IMGUI_WIDTH, WIN_HEIGHT), ImGuiCond_Once);
 
     ImGui::Begin("Boids Controls");
 
     // ID of ##On hides label
     ImGui::PushItemWidth(ImGui::GetWindowWidth());
 
-    ImGui::Text("Align Radius");
-    ImGui::SameLine(); HelpMarker("Each boid will try to align to the average velocity of all boids within adius.");
-    ImGui::SliderInt("##On", &alignDist, 0, 300 );
+    ImGui::Text("Perception Radius");
+    ImGui::SameLine(); HelpMarker("Each boid will try to move towards the center of mass as well as align its velocity with "
+                                  "all other boids in this radius.");
+    ImGui::SliderInt("##On", &perceptionRadius, 0, 300 );
 
     ImGui::Text("Align Weight");
     ImGui::SameLine(); HelpMarker("Decides how abruptly to adjust boid velocity to align with flock. "
                                   "Ranges from 0 (disable alignment) to 1 (adjust fully).");
     ImGui::SliderFloat("##1n", &alignWeight, 0, 1 );
 
-    ImGui::Text("Attraction Radius");
-    ImGui::SameLine(); HelpMarker("Each boid will be attracted to the center of mass of all boids within adius.");
-    ImGui::SliderInt("##2n", &cohesionDist, 0, 300 );
-
-    ImGui::Text("Attraction Weight");
+    ImGui::Text("Cohesion Weight");
     ImGui::SameLine(); HelpMarker("Decides how abruptly to adjust boid velocity to steer towards local center of mass. "
-                                  "Ranges from 0 (disable attraction) to 1 (adjust fully).");
+                                  "Ranges from 0 (disable cohesion) to 1 (adjust fully).");
     ImGui::SliderFloat("##3n", &cohesionWeight, 0, 1 );
 
-    ImGui::Text("Repulsion Radius");
-    ImGui::SameLine(); HelpMarker("Each boid will experience a repulsive force from all boids within adius of itself.");
-    ImGui::SliderInt("##4n", &repelDist, 0, 300 );
+    ImGui::Text("Separation Radius");
+    ImGui::SameLine(); HelpMarker("Each boid will experience a repulsive force from all boids within this radius");
+    ImGui::SliderInt("##4n", &separationRadius, 0, 300 );
 
-    ImGui::Text("Repulsion Weight");
+    ImGui::Text("Separation Weight");
     ImGui::SameLine(); HelpMarker("Decides how abruptly to adjust boid velocity to steer away from local boids. "
-                                  "Ranges from 0 (disable repulsion) to 1 (adjust fully).");
-    ImGui::SliderFloat("##5n", &repelWeight, 0, 1 );
+                                  "Ranges from 0 (disable separation) to 1 (adjust fully).");
+    ImGui::SliderFloat("##5n", &separationWeight, 0, 1 );
 
     ImGui::Text("Flock speed");
     ImGui::SameLine(); HelpMarker("Max speed at which a boid can travel at.");
-    ImGui::SliderInt("##6n", &maxSpeed, 1, 50 );
+    ImGui::SliderFloat("##6n", &maxSpeed, 1, 50 );
 
     ImGui::PopItemWidth();
 
-    ImGui::Checkbox("Show Trail?", showTrail);
-    ImGui::Checkbox("Randomize mass?", randomizeSize);
+    ImGui::Checkbox("Show Trail?", &m_showTrail);
+    ImGui::Checkbox("Randomize mass?", &m_randomizeSize);
 
     ImGui::Text("Mouse modifier");
-    ImGui::RadioButton("None", &mouseModifier, MouseModifier::None); ImGui::SameLine();
-    ImGui::RadioButton("Avoid", &mouseModifier, MouseModifier::Avoid); ImGui::SameLine();
-    ImGui::RadioButton("Attract", &mouseModifier, MouseModifier::Attract);
-    if(mouseModifier != MouseModifier::None) {
+    ImGui::RadioButton("None", &m_mouseModifier, MouseModifier::None); ImGui::SameLine();
+    ImGui::RadioButton("Avoid", &m_mouseModifier, MouseModifier::Avoid); ImGui::SameLine();
+    ImGui::RadioButton("Attract", &m_mouseModifier, MouseModifier::Attract);
+
+    if(m_mouseModifier == MouseModifier::Attract || m_mouseModifier == MouseModifier::Avoid) {
         ImGui::Text("Mouse effect distance");
-        ImGui::SliderInt("##7n", &mouseEffectDist, 100, 1000 );
+        ImGui::SliderInt("##7n", &m_mouseEffectDist, 100, 500 );
     }
 
-    if(ImGui::InputInt("Boid count", boidCount)) {
-        if(*boidCount < 0) *boidCount = 0;
-        if(*boidCount > 600) *boidCount = 600;
+    ImGui::Text("Boid Count");
+    if(ImGui::InputInt("##8n", &m_boidCount)) {
+        if(m_boidCount < 0) m_boidCount = 0;
+        if(m_boidCount > MAX_BOID_COUNT) m_boidCount = MAX_BOID_COUNT;
     }
 
     ImGui::End();
 
     UpdateBoidVelocityParams params;
-    params.alignDist = alignDist;
+    params.perceptionRadius = perceptionRadius;
     params.alignWeight = alignWeight;
-    params.cohesionDist = cohesionDist;
     params.cohesionWeight = cohesionWeight;
-    params.repelDist = repelDist;
-    params.repelWeight = repelWeight;
+    params.separationRadius = separationRadius;
+    params.separationWeight = separationWeight;
     params.maxSpeed = maxSpeed;
 
-    params.mouseEffectDist = mouseEffectDist;
-    params.mouseModifier = static_cast<MouseModifier>(mouseModifier);
-    params.mousePos = window->mapPixelToCoords(mousePosWindow);
+    params.mouseEffectDist = m_mouseEffectDist;
+    params.mouseModifier = static_cast<MouseModifier>(m_mouseModifier);
+    params.mousePos = mousePosWindow;
 
     return params;
 }
 
 void Simulation::updateMousePosition() {
-    mousePosWindow = sf::Mouse().getPosition(*this->window);
+    mousePosWindow = window->mapPixelToCoords(sf::Mouse().getPosition(*this->window));
 }
 
-void Simulation::updateBoidCount(int newCount, bool randomizeSize) {
+void Simulation::updateBoidCount(int newCount, bool randomizeSize){
     if(newCount < m_boids.size()) {
         m_boids.erase(m_boids.end() - (m_boids.size() - newCount), m_boids.end());
     } else if(newCount > m_boids.size()){
-        // add boids until we reach the desired size
-        addNewBoids(newCount - m_boids.size(), randomizeSize);
+        addBoids(newCount - m_boids.size(), randomizeSize);
+    }
+}
+
+void Simulation::addBoids(int count, bool randomizeSize) {
+    for(int i = 0; i < count; i++) {
+        // position
+        sf::Vector2f pos {
+                (float)(rand() % window->getSize().x),
+                (float)(rand() % window->getSize().y),
+        };
+
+        // velocity
+        float horiz_speed = rand_in_range(MIN_INIT_VELOCITY_XY, MAX_INIT_VELOCITY_XY);
+        float vert_speed;
+        do {
+            vert_speed = rand_in_range(MIN_INIT_VELOCITY_XY, MAX_INIT_VELOCITY_XY);
+        } while (vert_speed == 0);
+
+        sf::Vector2f v {horiz_speed, vert_speed};
+
+        // color
+        sf::Color c = m_boids.size() % 2 == 0 ? DARK_BOID_COLOR : LIGHT_BOID_COLOR;
+
+        // height and width
+        float height;
+        float width;
+
+        if(!randomizeSize) {
+            height = DEFAULT_BOID_HEIGHT;
+            width = DEFAULT_BOID_WIDTH;
+        } else {
+            height = rand_in_range(MIN_BOID_HEIGHT, MAX_BOID_HEIGHT);
+            width = round(height * 1.75); // roughly to maintain dimension
+        }
+
+        // mass
+        float mass = randomizeSize ? (height / DEFAULT_BOID_HEIGHT) : 1;
+
+        Boid b { pos, v, c, height, width, window->getSize(), m_margin, mass };
+        m_boids.emplace_back(b); // cannot be push_back because b will go out of scope otherwise.
+
+        // add to spatial index
+        m_grid.addBoid(&b);
     }
 }
 
 void Simulation::update() {
-    static bool showTrail = false;
-    static int boidCount = m_boids.size();
-    static bool randomizeSize = false;
-
     sf::Time elapsed = deltaClock.restart();
-
-    pollEvents();
     updateMousePosition();
-    UpdateBoidVelocityParams params = updateImGui(elapsed, &showTrail, &boidCount, &randomizeSize);
-    updateBoids(params, showTrail);
-    updateBoidCount(boidCount, randomizeSize);
+    pollEvents();
+    UpdateBoidVelocityParams params = updateImGui(elapsed);
+    updateBoidCount(m_boidCount, m_randomizeSize);
+    updateBoids(params, m_showTrail);
 }
 
 
@@ -202,7 +257,7 @@ void Simulation::render() {
 
 void Simulation::initWindow() {
     settings.antialiasingLevel = 8;
-    videoMode = sf::VideoMode(1920, 1080, 32);
+    videoMode = sf::VideoMode(WIN_WIDTH, WIN_HEIGHT, 32);
     window = new sf::RenderWindow(videoMode, "Boids Simulation",
                                         sf::Style::Titlebar | sf::Style::Close,
                                         settings);
@@ -216,49 +271,3 @@ void Simulation::initImGui(){
     constexpr auto scale_factor = 2.0;
     ImGui::GetIO().FontGlobalScale = scale_factor;
 }
-
-static int rand_in_range(int min, int max) {
-    return std::rand() % (max + 1 - min) + min;
-}
-
-
-void Simulation::addNewBoids(int count, bool randomizeSize) {
-    for(int i = 0; i < count; i++) {
-        // spawn a boid
-        sf::Vector2f pos {
-            (float)(rand() % window->getSize().x),
-            (float)(rand() % window->getSize().y),
-        };
-
-        float horiz_speed = rand_in_range(MIN_INIT_VELOCITY_XY, MAX_INIT_VELOCITY_XY);
-        float vert_speed;
-        do {
-            vert_speed = rand_in_range(MIN_INIT_VELOCITY_XY, MAX_INIT_VELOCITY_XY);
-        } while (vert_speed == 0);
-
-        sf::Vector2f v {horiz_speed, vert_speed};
-
-        int newIndex = m_boids.size();
-        sf::Color c = newIndex % 2 == 0 ? DARK_BOID_COLOR : LIGHT_BOID_COLOR;
-
-        float height;
-        float width;
-
-        if(!randomizeSize) {
-            height = DEFAULT_BOID_HEIGHT;
-            width = DEFAULT_BOID_WIDTH;
-        } else {
-            height = rand_in_range(MIN_BOID_HEIGHT, MAX_BOID_HEIGHT);
-            width = round(height * 1.75); // roughly to maintain dimension
-        }
-
-        float mass = randomizeSize ? (height / DEFAULT_BOID_HEIGHT) * 1 : 1;
-
-        m_boids.emplace_back(pos, v, c, height, width, mass);
-    }
-}
-
-
-
-
-

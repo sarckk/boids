@@ -1,124 +1,108 @@
-//
-// Created by Yong Hoon Shin on 06/07/2021.
-//
-
-#include <assert.h>
+#include <iostream>
 #include "Boid.h"
 #include "VectorArithmetic.h"
 
 using namespace VectorArithmetic;
 
-Boid::Boid(const sf::Vector2f& pos, const sf::Vector2f& v, const sf::Color& c, float height, float width, float mass = 1)
+Boid::Boid(const sf::Vector2f& pos, const sf::Vector2f& v, const sf::Color& c,
+            float height, float width, const sf::Vector2u& windowSize, unsigned int margin, float mass)
 : Arrow(pos, v, c, height, width)
 , m_velocity(v)
 , m_mass(mass)
 , m_showTrail(false)
+, m_windowSize(windowSize)
+, m_margin(margin)
 {
     m_trailVertices.reserve(MAX_TRAIL_COUNT);
 }
 
-const sf::Vector2f& Boid::getVelocity() const {
-    return m_velocity;
+const sf::Vector2f& Boid::getVelocity() const { return m_velocity; }
+const sf::Vector2f &Boid::getDirection() const { return m_direction; }
+float Boid::getWidth() const { return m_width; }
+
+sf::Vector2f Boid::alignment(const std::vector<Boid*>& boids, float maxSpeed){
+    if(boids.empty()) return {};
+
+    sf::Vector2f desiredV;
+    for(const Boid* b : boids) {
+        desiredV += b->m_velocity;
+    }
+    desiredV /= (float) boids.size();
+    setMag_(desiredV, maxSpeed);
+    return desiredV;
 }
 
-sf::Vector2f Boid::alignment(const std::vector<Boid>& boids, float maxSpeed, int alignDist, float weight){
-    sf::Vector2f desiredV, deltaV;
-    int neighborCount = 0;
+sf::Vector2f Boid::separation(const std::vector<Boid*>& boids, float maxSpeed) {
+    if(boids.empty()) return {};
 
-    for(const Boid& b : boids) {
-        if(&b == this) continue;
-        float dist = getDistance(getPosition(), b.getPosition());
-
-        if (dist < alignDist) {
-            neighborCount++;
-            desiredV += b.m_velocity;
-        }
-    }
-
-    if(neighborCount) {
-        desiredV /= (float) neighborCount;
-        setMag(desiredV, maxSpeed);
-        deltaV = weight * (desiredV - m_velocity);
-    }
-
-    return deltaV;
-}
-
-sf::Vector2f Boid::repulsion(const std::vector<Boid>& boids, float maxSpeed, int repelDist, float weight) {
-    sf::Vector2f desiredV, deltaV;
-    int neighborCount = 0;
-
-    for(const Boid& b : boids) {
-        if(&b == this) continue;
-        float dist = getDistance(getPosition(), b.getPosition());
-
+    sf::Vector2f desiredV;
+    for(const Boid* b : boids) {
+        float dist = getDistance(getPosition(), b->getPosition());
         if(dist < 1e-2) continue;
-
-        if (dist < repelDist) {
-            neighborCount++;
-            desiredV += (getPosition() - b.getPosition()) / (dist * dist);
-        }
+        desiredV += (getPosition() - b->getPosition()) / (dist * dist);
     }
-
-    if(neighborCount) {
-        desiredV /= (float) neighborCount;
-        setMag(desiredV, maxSpeed);
-        deltaV = weight * (desiredV - m_velocity);
-    }
-
-    return deltaV;
+    desiredV /= (float) boids.size();
+    setMag_(desiredV, maxSpeed);
+    return desiredV;
 }
 
-sf::Vector2f Boid::cohesion(const std::vector<Boid>& boids, float maxSpeed, int cohesionDist, float weight) {
-    sf::Vector2f averagePosition, desiredV, deltaV;
+sf::Vector2f Boid::cohesion(const std::vector<Boid*>& boids, float maxSpeed) {
+    if(boids.empty()) return {};
+
+    sf::Vector2f averagePosition, desiredV;
     int neighborCount = 0;
 
-    for(const Boid& b : boids) {
-        if(&b == this) continue;
-        float dist = getDistance(getPosition(), b.getPosition());
-
-        if (dist < cohesionDist) {
-            neighborCount++;
-            averagePosition += b.getPosition();
-        }
+    for(const Boid* b : boids) {
+        neighborCount++;
+        averagePosition += b->getPosition();
     }
-
-    if(neighborCount) {
-        averagePosition /= (float) neighborCount;
-        desiredV = averagePosition - getPosition();
-        setMag(desiredV, maxSpeed);
-        deltaV = weight * (desiredV - m_velocity);
-    }
-
-    return deltaV;
+    averagePosition /= (float) neighborCount;
+    desiredV = averagePosition - getPosition();
+    setMag_(desiredV, maxSpeed);
+    return desiredV;
 }
 
-void Boid::updateVelocity(const std::vector<Boid>& boids, UpdateBoidVelocityParams params) {
-    sf::Vector2f steer, acceleration;
+sf::Vector2f Boid::mouseEffect(MouseModifier mouseModifier, sf::Vector2f mousePos, int mouseEffectDist, float maxSpeed) {
+    sf::Vector2f desiredV;
+    if(mouseModifier != MouseModifier::None) {
+        if(mouseModifier == MouseModifier::Attract) desiredV = mousePos - getPosition();
+        else if(mouseModifier == MouseModifier::Avoid) desiredV = getPosition() - mousePos;
+        if(magnitude(desiredV) < mouseEffectDist) {
+            setMag_(desiredV, maxSpeed);
+            return desiredV;
+        }
+    }
+    return {};
+}
+
+void Boid::updateVelocity(const std::vector<Boid*>& boidsInPerceptionRadius,
+                          const std::vector<Boid*>& boidsInSeparationRadius,
+                          UpdateBoidVelocityParams params) {
+    sf::Vector2f steer, alignV, separationV, cohesionV, mouseV;
     float maxSpeed = params.maxSpeed;
 
-    acceleration = alignment(boids, maxSpeed, params.alignDist, params.alignWeight);
-    acceleration += repulsion(boids, maxSpeed, params.repelDist, params.repelWeight);
-    acceleration += cohesion(boids, maxSpeed, params.cohesionDist, params.cohesionWeight);
+    alignV       = alignment(boidsInPerceptionRadius, maxSpeed);
+    separationV  = separation(boidsInSeparationRadius, maxSpeed);
+    cohesionV    = cohesion(boidsInPerceptionRadius,  maxSpeed);
+    mouseV       = mouseEffect(params.mouseModifier, params.mousePos, params.mouseEffectDist, maxSpeed);
 
-    if(params.mouseModifier != MouseModifier::None) {
-        sf::Vector2f desiredV;
-        if(params.mouseModifier == MouseModifier::Attract) desiredV = params.mousePos - getPosition();
-        else if(params.mouseModifier == MouseModifier::Avoid) desiredV = getPosition() - params.mousePos;
-        if(magnitude(desiredV) < params.mouseEffectDist) {
-            setMag(desiredV, maxSpeed);
-            acceleration+= MOUSE_ATTRACTION_FACTOR * (desiredV - m_velocity);
-        }
-    }
+    if(magnitude(alignV) > 0)       steer += params.alignWeight * (alignV - m_velocity);
+    if(magnitude(separationV) > 0)  steer += params.separationWeight * (separationV - m_velocity);
+    if(magnitude(cohesionV) > 0)    steer += params.cohesionWeight * (cohesionV - m_velocity);
+    if(magnitude(mouseV) > 0)       steer += MOUSE_EFFECT_WEIGHT * (mouseV - m_velocity);
 
-    steer = acceleration / m_mass;
+    m_acceleration = steer / m_mass;
     m_velocity += steer;
-    limit(m_velocity, params.maxSpeed);
+
+    limit_(m_velocity, params.maxSpeed);
     setDirection(m_velocity);
+
+    // reset before next update
+    m_acceleration.x = 0;
+    m_acceleration.y = 0;
 }
 
-void Boid::moveBounded(sf::Vector2u windowDim, unsigned int margin) {
-    // record the position
+void Boid::recordPosition(){
     if(m_trailVertices.size() == MAX_TRAIL_COUNT) {
         m_trailVertices.erase(m_trailVertices.begin());
     }
@@ -131,22 +115,39 @@ void Boid::moveBounded(sf::Vector2u windowDim, unsigned int margin) {
         float ratio = (float) i / MAX_TRAIL_COUNT;
         m_trailVertices[i].color.a = static_cast<sf::Uint8>(ratio * 255 * 0.3);
     }
+}
 
-    move(m_velocity);
+void Boid::move(float boundingForce) {
+    recordPosition();
+    Arrow::move(m_velocity);
 
-    int boundingForce = 1;
-
-    if(getPosition().x < margin) {
+    // bound the position
+    if(getPosition().x < m_margin) {
         m_velocity.x += boundingForce;
-    } else if(getPosition().x > windowDim.x - margin) {
+    } else if(getPosition().x > m_windowSize.x - m_margin) {
         m_velocity.x -= boundingForce;
     }
 
-    if(getPosition().y < margin) {
+    if(getPosition().y < m_margin) {
         m_velocity.y += boundingForce;
-    } else if(getPosition().y > windowDim.y - margin) {
+    } else if(getPosition().y > m_windowSize.y - m_margin) {
         m_velocity.y -= boundingForce;
     }
+//    if(getPosition().x < 0) {
+//        // m_velocity.x += boundingForce;
+//        setPosition(m_windowSize.x, getPosition().y);
+//    } else if(getPosition().x > m_windowSize.x) {
+//        // m_velocity.x -= boundingForce;
+//        setPosition(0, getPosition().y);
+//    }
+//
+//    if(getPosition().y < 0) {
+//        // m_velocity.y += boundingForce;
+//        setPosition(getPosition().x, m_windowSize.y);
+//    } else if(getPosition().y > m_windowSize.y) {
+//        //m_velocity.y -= boundingForce;
+//        setPosition(getPosition().x, 0);
+//    }
 }
 
 void Boid::draw(sf::RenderTarget& target, sf::RenderStates states) const {
@@ -160,6 +161,9 @@ void Boid::draw(sf::RenderTarget& target, sf::RenderStates states) const {
 void Boid::setShowTrail(bool showTrail) {
     m_showTrail = showTrail;
 }
+
+
+
 
 
 

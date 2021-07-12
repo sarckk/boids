@@ -1,39 +1,43 @@
-//
-// Created by Yong Hoon Shin on 10/07/2021.
-//
-
 #include <cmath>
 #include <SFML/System.hpp>
 
 #include "VectorArithmetic.h"
 
-float VectorArithmetic::getDistance(sf::Vector2f v1, sf::Vector2f v2) {
+float VectorArithmetic::getDistance(const sf::Vector2f& v1, const sf::Vector2f& v2) {
     float d_x = v1.x - v2.x;
     float d_y = v1.y - v2.y;
     return static_cast<float>(sqrt(d_x * d_x + d_y * d_y));
 }
 
-float VectorArithmetic::magnitude(sf::Vector2f& vec)  {
+float VectorArithmetic::magnitude(const sf::Vector2f& vec) {
     return static_cast<float>(sqrt(vec.x * vec.x + vec.y * vec.y));
 }
 
-void VectorArithmetic::normalize(sf::Vector2f &vec) {
+void VectorArithmetic::normalize_(sf::Vector2f &vec) {
     float m = magnitude(vec);
     if(m > 0.) {
         vec /= m;
     }
 }
 
-void VectorArithmetic::limit(sf::Vector2f& vec, float limit)  {
+sf::Vector2f VectorArithmetic::normalizeCopy(sf::Vector2f vec) {
+    float m = magnitude(vec);
+    if(m > 0.) {
+        vec /= m;
+    }
+    return vec;
+}
+
+void VectorArithmetic::limit_(sf::Vector2f& vec, float limit)  {
     float m = magnitude(vec);
     if(m > 0 && m > limit) {
-        normalize(vec);
+        normalize_(vec);
         vec *= limit;
     }
 }
 
-void VectorArithmetic::setMag(sf::Vector2f &vec, float mag) {
-    normalize(vec);
+void VectorArithmetic::setMag_(sf::Vector2f &vec, float mag) {
+    normalize_(vec);
     vec *= mag;
 }
 
