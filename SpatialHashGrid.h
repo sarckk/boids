@@ -15,20 +15,23 @@ private:
     std::map<int, std::unordered_set<Boid*>> m_grid;
 
     // numOffsetsWithinDist[i] contains no. of cells in the grid which are within squared distance <i> from center of grid (cumulative sum)
-    std::vector<int> m_nOffsetsWithinSqDist; // maxSquaredDist + 1 in size
-    std::vector<int> m_globalOffset; // numCells in size
+    int* m_nOffsetsWithinSqDist; // maxSquaredDist + 1 in size
+    int* m_globalOffset; // numCells in size
 
     int createKey(int x, int y);
     sf::Vector2i getIndices(sf::Vector2f p);
 
 public:
     SpatialHashGrid() = default;
-
     SpatialHashGrid(const sf::Vector2u& winDim, int cellSize);
+    ~SpatialHashGrid();
 
-    void addBoid(Boid* boid);
-    void removeBoid(Boid* boid);
-    void updateBoid(Boid* boid);
+    SpatialHashGrid(SpatialHashGrid&& other) noexcept;
+    SpatialHashGrid& operator=(SpatialHashGrid&& other) noexcept;
+
+    void addBoid(std::shared_ptr<Boid> boid);
+    void removeBoid(std::shared_ptr<Boid> boid);
+    void updateBoid(std::shared_ptr<Boid> boid);
     void clear();
     std::vector<Boid*> radiusSearch(const Boid* query, int radius);
 };

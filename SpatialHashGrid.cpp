@@ -3,26 +3,17 @@
 #include <iostream>
 
 #include "SpatialHashGrid.h"
-
-//static void verify( std::map<int, std::unordered_set<int>>& t) {
-//    for (auto const& x : t)
-//    {
-//        std::cout << x.first  // string (key)
-//                  << ':'
-//                  << x.second.size() // string's value
-//                  << std::endl;
-//    }
-//}
+#include "VectorArithmetic.h"
 
 SpatialHashGrid::SpatialHashGrid(const sf::Vector2u &winDim, int cellSize)
 : m_windowDimensions(winDim)
 , m_cellSize(cellSize)
 {
-    m_gridDimensions.x = ceil(winDim.x / cellSize);
-    m_gridDimensions.y = ceil(winDim.y / cellSize);
+    m_gridDimensions.x = ceil(winDim.x / (double)cellSize);
+    m_gridDimensions.y = ceil(winDim.y / (double)cellSize);
 
     // initialise distance matrix here
-    sf::Vector2u center = m_gridDimensions / (unsigned) 2;  // (0,0)
+    sf::Vector2u center = m_gridDimensions / (unsigned) 2;  // considered as (0,0) for calculation of sq dist later
     int centerKey = createKey(center.x, center.y);
 
     // our m_grid representation is m_gridDimensions.x by m_gridDimensions.y
@@ -34,10 +25,11 @@ SpatialHashGrid::SpatialHashGrid(const sf::Vector2u &winDim, int cellSize)
             if(rowIndex == center.y && colIndex == center.x) {
                 // this is the center cell
                 offsetsByDistToCenter[0].insert(0);
+                continue;
             }
             int key = createKey(colIndex, rowIndex);
-            int d_x = (abs(int(colIndex  - center.x))-1); // min.horizontal dist between this cell to center cell
-            int d_y = (abs(int(rowIndex - center.y))-1); // min.vertical dist between this cell to center cell
+            int d_x = std::max((abs(int(colIndex - center.x))-1),0); // min.horizontal dist between this cell to center cell
+            int d_y = std::max((abs(int(rowIndex - center.y))-1),0); // min.vertical dist between this cell to center cell
             int distSquared = d_x * d_x + d_y * d_y;
             offsetsByDistToCenter[distSquared].insert(key - centerKey );
 
@@ -45,9 +37,9 @@ SpatialHashGrid::SpatialHashGrid(const sf::Vector2u &winDim, int cellSize)
         }
     }
 
-    m_nOffsetsWithinSqDist = std::vector<int>{ maxDistSquared + 1 };
+    m_nOffsetsWithinSqDist = new int[maxDistSquared + 1];
     int numCells = m_gridDimensions.x * m_gridDimensions.y;
-    m_globalOffset = std::vector<int>{ numCells };
+    m_globalOffset = new int[numCells];
 
     int i = 0;
 
@@ -86,9 +78,6 @@ void SpatialHashGrid::addBoid(Boid* boid) {
 //    }
 }
 
-// https://stackoverflow.com/questions/32685540/why-cant-i-compile-an-unordered-map-with-a-pair-as-key
-// return (size_t) x << 32 | (unsigned int) y;
-
 int SpatialHashGrid::createKey(int x, int y) {
     return x + y * m_gridDimensions.x;
 }
@@ -110,13 +99,12 @@ void SpatialHashGrid::clear() {
 std::vector<Boid*> SpatialHashGrid::radiusSearch(const Boid* query, int radius) {
     std::vector<Boid*> res;
 
-//    int d = radius / (m_cellSize * m_cellSize); // convert radius in pixel space to grid space
-//    int n = std::floor(d * d);
-    int n = radius * radius;
+    double d = radius / static_cast<double>(m_cellSize); // convert radius in pixel space to grid space
+    int n = std::floor(d * d);
+
+    // std::cout << m_nOffsetsWithinSqDist[n] << '\n';
 
     int cellIndexOfQuery = query->p_spatialIndex;
-
-    std::cout << m_nOffsetsWithinSqDist[n] << '\n';
 
     for(int i = 0; i < m_nOffsetsWithinSqDist[n]; i++) {
         int offset = m_globalOffset[i];
@@ -149,7 +137,7 @@ std::vector<Boid*> SpatialHashGrid::radiusSearch(const Boid* query, int radius) 
     return res;
 }
 
-void SpatialHashGrid::removeBoid(Boid *boid) {
+void SpatialHashGrid::removeBoid(std::shared_ptr<Boid> boid) {
     m_grid[boid->p_spatialIndex].erase(boid); // O(1)
 }
 
@@ -163,5 +151,40 @@ void SpatialHashGrid::updateBoid(Boid *boid) {
 
     removeBoid(boid);
     addBoid(boid);
+}
+
+SpatialHashGrid::~SpatialHashGrid() {
+    delete[] m_nOffsetsWithinSqDist;
+    delete[] m_globalOffset;
+}
+
+SpatialHashGrid::SpatialHashGrid(SpatialHashGrid &&other) noexcept {
+    m_cellSize = other.m_cellSize;
+    m_gridDimensions = other.m_gridDimensions;
+    m_windowDimensions = other.m_windowDimensions;
+    m_grid = other.m_grid;
+    m_nOffsetsWithinSqDist = other.m_nOffsetsWithinSqDist;
+    m_globalOffset = other.m_globalOffset;
+
+    other.m_nOffsetsWithinSqDist = nullptr;
+    other.m_globalOffset = nullptr;
+}
+
+SpatialHashGrid &SpatialHashGrid::operator=(SpatialHashGrid &&other) noexcept {
+    if(this != &other) {
+        delete[] m_nOffsetsWithinSqDist;
+        delete[] m_globalOffset;
+
+        m_cellSize = other.m_cellSize;
+        m_gridDimensions = other.m_gridDimensions;
+        m_windowDimensions = other.m_windowDimensions;
+        m_grid = other.m_grid;
+        m_nOffsetsWithinSqDist = other.m_nOffsetsWithinSqDist;
+        m_globalOffset = other.m_globalOffset;
+
+        other.m_nOffsetsWithinSqDist = nullptr;
+        other.m_globalOffset = nullptr;
+    }
+    return *this;
 }
 

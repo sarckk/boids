@@ -38,12 +38,14 @@ Simulation::Simulation()
 , m_randomizeSize(false)
 , m_mouseModifier(MouseModifier::None)
 , m_mouseEffectDist(300)
+, m_grid()
 {
 
     initWindow();
     initImGui();
 
-    m_grid = SpatialHashGrid { window->getSize(), 102 };
+    SpatialHashGrid grid { window->getSize(), 200 };
+    m_grid = std::move(grid);
     addBoids(START_BOID_COUNT, false);
 }
 
@@ -182,7 +184,12 @@ void Simulation::updateMousePosition() {
 
 void Simulation::updateBoidCount(int newCount, bool randomizeSize){
     if(newCount < m_boids.size()) {
-        m_boids.erase(m_boids.end() - (m_boids.size() - newCount), m_boids.end());
+        for(int i = 0; i < newCount; i++) {
+            // remove it from spatial hash grid first
+            m_grid.removeBoid(m_boids.back());
+            // then remove it from m_boids
+            m_boids.pop_back();
+        }
     } else if(newCount > m_boids.size()){
         addBoids(newCount - m_boids.size(), randomizeSize);
     }
@@ -223,11 +230,11 @@ void Simulation::addBoids(int count, bool randomizeSize) {
         // mass
         float mass = randomizeSize ? (height / DEFAULT_BOID_HEIGHT) : 1;
 
-        Boid b { pos, v, c, height, width, window->getSize(), m_margin, mass };
-        m_boids.emplace_back(b); // cannot be push_back because b will go out of scope otherwise.
+        std::shared_ptr<Boid> bPtr = std::make_shared<Boid>( pos, v, c, height, width, window->getSize(), m_margin, mass );
+        m_boids.emplace_back(bPtr); // cannot be push_back because b will go out of scope otherwise.
 
         // add to spatial index
-        m_grid.addBoid(&b);
+        m_grid.addBoid(bPtr);
     }
 }
 

@@ -14,7 +14,7 @@ class Simulation {
 private:
     constexpr static int SCREEN_MARGIN = 200;
 
-    constexpr static int START_BOID_COUNT = 1;
+    constexpr static int START_BOID_COUNT = 2;
     constexpr static int MAX_BOID_COUNT = 600;
 
     constexpr static int MIN_INIT_VELOCITY_XY = -10;
@@ -46,7 +46,7 @@ private:
 
     // Boids
     SpatialHashGrid m_grid;
-    std::vector<Boid> m_boids;
+    std::vector<std::shared_ptr<Boid>> m_boids;
     unsigned int m_margin;
     int m_boidCount;
     int m_mouseEffectDist;

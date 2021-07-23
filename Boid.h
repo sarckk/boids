@@ -44,9 +44,11 @@ private:
     sf::Vector2i m_windowSize;
     int m_margin;
 
+    // drawing stuff
+    std::vector<Boid*> m_neighbors;
     std::vector<sf::Vertex> m_trailVertices;
 
-    sf::Vector2f alignment(const std::vector<Boid*>& boids, float maxSpeed);
+            sf::Vector2f alignment(const std::vector<Boid*>& boids, float maxSpeed);
     sf::Vector2f separation(const std::vector<Boid*>& boids, float maxSpeed);
     sf::Vector2f cohesion(const std::vector<Boid*>& boids, float maxSpeed);
     sf::Vector2f mouseEffect(MouseModifier mouseModifier, sf::Vector2f mousePos, int mouseEffectDist, float maxSpeed);

@@ -12,6 +12,7 @@ Boid::Boid(const sf::Vector2f& pos, const sf::Vector2f& v, const sf::Color& c,
 , m_showTrail(false)
 , m_windowSize(windowSize)
 , m_margin(margin)
+, p_spatialIndex(-1)
 {
     m_trailVertices.reserve(MAX_TRAIL_COUNT);
 }
@@ -100,6 +101,9 @@ void Boid::updateVelocity(const std::vector<Boid*>& boidsInPerceptionRadius,
     // reset before next update
     m_acceleration.x = 0;
     m_acceleration.y = 0;
+
+    // set current neighbors
+    m_neighbors = boidsInPerceptionRadius;
 }
 
 void Boid::recordPosition(){
@@ -152,6 +156,16 @@ void Boid::move(float boundingForce) {
 
 void Boid::draw(sf::RenderTarget& target, sf::RenderStates states) const {
     Arrow::draw(target, states);
+
+    // draw neighboring boids in perception radius
+    for(Boid* boidPtr : m_neighbors) {
+        sf::CircleShape shape(10);
+        shape.setPosition(boidPtr->getPosition());
+        shape.setFillColor(sf::Color::Red);
+        shape.setOutlineColor(sf::Color::White);
+        shape.setOutlineThickness(1);
+        target.draw(shape,states);
+    }
 
     // now draw trails
     if(m_showTrail)
