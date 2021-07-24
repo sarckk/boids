@@ -44,7 +44,7 @@ Simulation::Simulation()
     initWindow();
     initImGui();
 
-    SpatialHashGrid grid { window->getSize(), 200 };
+    SpatialHashGrid grid { window->getSize(), 50 };
     m_grid = std::move(grid);
     addBoids(START_BOID_COUNT, false);
 }
@@ -74,31 +74,29 @@ void Simulation::pollEvents() {
 }
 
 void Simulation::updateBoids(UpdateBoidVelocityParams params, bool showTrail) {
-    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+    // std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 
-    for(Boid& b: m_boids) {
-        b.setShowTrail(showTrail);
-        auto s = m_grid.radiusSearch(&b, params.perceptionRadius);
-        b.updateVelocity(
-            s
-            ,m_grid.radiusSearch(&b, params.separationRadius)
-            ,params
-        );
-        b.move(1);
-        m_grid.updateBoid(&b);
+    for(auto b: m_boids) {
+        b->setShowTrail(showTrail);
+        auto otherBoidsInPerceptionRadius = m_grid.radiusSearch(b, params.perceptionRadius);
+        m_currentBoidNeighbors = otherBoidsInPerceptionRadius;
+        auto otherBoidsInSeparationRadius = m_grid.radiusSearch(b, params.separationRadius);
+        b->updateVelocity(otherBoidsInPerceptionRadius ,otherBoidsInSeparationRadius ,params);
+        b->move(1);
+        m_grid.updateBoid(b);
     }
 
-//    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-//    std::cout << "Time taken to update all boids: " << std::chrono::duration_cast<std::chrono::milliseconds> (end - begin).count() << "[ms]" << std::endl;
+    // std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    // std::cout << "Time taken to update all boids: " << std::chrono::duration_cast<std::chrono::milliseconds> (end - begin).count() << "[ms]" << std::endl;
 }
 
 UpdateBoidVelocityParams Simulation::updateImGui(sf::Time elapsed) {
     static int perceptionRadius = 90;
-    static float alignWeight = 0.351;
-    static float cohesionWeight = 0.053;
-    static int separationRadius = 87;
-    static float separationWeight = 0.075;
-    static float maxSpeed = 15;
+    static float alignWeight = 0.222;
+    static float cohesionWeight = 0.080;
+    static int separationRadius = 71;
+    static float separationWeight = 0.085;
+    static float maxSpeed = 14;
 
     ImGui::SFML::Update(*window, elapsed);
     const ImGuiViewport* main_viewport = ImGui::GetMainViewport();
@@ -116,6 +114,8 @@ UpdateBoidVelocityParams Simulation::updateImGui(sf::Time elapsed) {
     ImGui::SameLine(); HelpMarker("Each boid will try to move towards the center of mass as well as align its velocity with "
                                   "all other boids in this radius.");
     ImGui::SliderInt("##On", &perceptionRadius, 0, 300 );
+
+    ImGui::Checkbox("Highlight neighbors in radius", &m_showNeighbors);
 
     ImGui::Text("Align Weight");
     ImGui::SameLine(); HelpMarker("Decides how abruptly to adjust boid velocity to align with flock. "
@@ -184,7 +184,7 @@ void Simulation::updateMousePosition() {
 
 void Simulation::updateBoidCount(int newCount, bool randomizeSize){
     if(newCount < m_boids.size()) {
-        for(int i = 0; i < newCount; i++) {
+        for(int i = 0; i < (m_boids.size() - newCount); i++) {
             // remove it from spatial hash grid first
             m_grid.removeBoid(m_boids.back());
             // then remove it from m_boids
@@ -230,7 +230,11 @@ void Simulation::addBoids(int count, bool randomizeSize) {
         // mass
         float mass = randomizeSize ? (height / DEFAULT_BOID_HEIGHT) : 1;
 
-        std::shared_ptr<Boid> bPtr = std::make_shared<Boid>( pos, v, c, height, width, window->getSize(), m_margin, mass );
+        // show neighbors if first boid
+        bool showNeighbors = m_boids.empty();
+
+        std::shared_ptr<Boid> bPtr = std::make_shared<Boid>( pos, v, c, height, width, window->getSize(),
+                                                             m_margin, mass, showNeighbors );
         m_boids.emplace_back(bPtr); // cannot be push_back because b will go out of scope otherwise.
 
         // add to spatial index
@@ -250,8 +254,20 @@ void Simulation::update() {
 
 void Simulation::renderBoids()
 {
-    for (const Boid& b : m_boids) {
-        window->draw(b);
+    for (const auto b : m_boids) {
+        window->draw(*b);
+
+        // draw neighboring boids in perception radius
+        if(m_showNeighbors && b->p_showNeighbors) {
+            for(auto boidPtr : m_currentBoidNeighbors) {
+                sf::CircleShape shape(8);
+                shape.setPosition(boidPtr->getPosition());
+                shape.setFillColor(sf::Color::Red);
+                shape.setOutlineColor(sf::Color::White);
+                shape.setOutlineThickness(1);
+                window->draw(shape);
+            }
+        }
     }
 }
 

@@ -1,6 +1,5 @@
 #include <cstdlib>
 #include <algorithm>
-#include <iostream>
 
 #include "SpatialHashGrid.h"
 #include "VectorArithmetic.h"
@@ -58,24 +57,13 @@ SpatialHashGrid::SpatialHashGrid(const sf::Vector2u &winDim, int cellSize)
     }
 }
 
-void SpatialHashGrid::addBoid(Boid* boid) {
+void SpatialHashGrid::addBoid(std::shared_ptr<Boid> boid) {
     // position of the base of boid arrow
     auto i1 = getIndices(boid->getPosition());
     int idx = createKey(i1.x, i1.y);
     m_grid[idx].insert(boid);
 
     boid->p_spatialIndex = idx;
-
-    // position of the boid is at the center of the base of the arrow
-    // position of the arrow tip
-//    sf::Vector2f arrowTipPos = boid.getPosition() + boid.getDirection() * boid.getWidth();
-//    auto i2 = getIndices(arrowTipPos);
-//
-//    for (int x = std::min(i1.first, i2.first); x <= std::max(i1.first, i2.first); ++x) {
-//        for (int y = std::min(i1.second, i2.second); y <= std::max(i1.second, i2.second); ++y) {
-//            m_grid[createKey(x, y)].push_back(boid);
-//        }
-//    }
 }
 
 int SpatialHashGrid::createKey(int x, int y) {
@@ -96,13 +84,13 @@ void SpatialHashGrid::clear() {
     m_grid.clear();
 }
 
-std::vector<Boid*> SpatialHashGrid::radiusSearch(const Boid* query, int radius) {
-    std::vector<Boid*> res;
+std::vector<std::shared_ptr<Boid>> SpatialHashGrid::radiusSearch(const std::shared_ptr<Boid> query, int radius) {
+    using namespace VectorArithmetic;
+
+    std::vector<std::shared_ptr<Boid>> res;
 
     double d = radius / static_cast<double>(m_cellSize); // convert radius in pixel space to grid space
     int n = std::floor(d * d);
-
-    // std::cout << m_nOffsetsWithinSqDist[n] << '\n';
 
     int cellIndexOfQuery = query->p_spatialIndex;
 
@@ -115,24 +103,12 @@ std::vector<Boid*> SpatialHashGrid::radiusSearch(const Boid* query, int radius) 
 
         for(auto boid : m_grid[offsetWithinBounds]) {
             if(boid == query) continue; // ignore itself
-            res.push_back(boid);
+
+            if(getSquaredDistance(boid->getPosition(),query->getPosition()) <= radius * radius) {
+                res.push_back(boid);
+            }
         }
     }
-
-//    sf::Vector2f arrowTipPos = query.getPosition() + query.getDirection() * query.getWidth();
-//    auto i2 = getIndices(arrowTipPos);
-//
-//    for (int x = std::min(i1.first, i2.first); x <= std::max(i1.first, i2.first); ++x) {
-//        for (int y = std::min(i1.second, i2.second); y <= std::max(i1.second, i2.second); ++y) {
-//            int key = createKey(x, y);
-//
-//            for(const Boid& boid : m_grid[key]) {
-//                if(&boid == &query) continue; // ignore itself
-//                std::cout << "here\n";
-//                res.push_back(boid);
-//            }
-//        }
-//    }
 
     return res;
 }
@@ -141,7 +117,7 @@ void SpatialHashGrid::removeBoid(std::shared_ptr<Boid> boid) {
     m_grid[boid->p_spatialIndex].erase(boid); // O(1)
 }
 
-void SpatialHashGrid::updateBoid(Boid *boid) {
+void SpatialHashGrid::updateBoid(std::shared_ptr<Boid> boid) {
     auto i1 = getIndices(boid->getPosition());
     int key = createKey(i1.x, i1.y);
 

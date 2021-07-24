@@ -45,12 +45,11 @@ private:
     int m_margin;
 
     // drawing stuff
-    std::vector<Boid*> m_neighbors;
     std::vector<sf::Vertex> m_trailVertices;
 
-            sf::Vector2f alignment(const std::vector<Boid*>& boids, float maxSpeed);
-    sf::Vector2f separation(const std::vector<Boid*>& boids, float maxSpeed);
-    sf::Vector2f cohesion(const std::vector<Boid*>& boids, float maxSpeed);
+    sf::Vector2f alignment(const std::vector<std::shared_ptr<Boid>>& boids, float maxSpeed);
+    sf::Vector2f separation(const std::vector<std::shared_ptr<Boid>>& boids, float maxSpeed);
+    sf::Vector2f cohesion(const std::vector<std::shared_ptr<Boid>>& boids, float maxSpeed);
     sf::Vector2f mouseEffect(MouseModifier mouseModifier, sf::Vector2f mousePos, int mouseEffectDist, float maxSpeed);
 
     void recordPosition();
@@ -58,12 +57,13 @@ private:
 
 public:
     int p_spatialIndex;
+    bool p_showNeighbors;
 
     explicit Boid(const sf::Vector2f& position, const sf::Vector2f& velocity, const sf::Color& color,
-                  float height, float width, const sf::Vector2u& windowSize, unsigned int margin, float mass);
+                  float height, float width, const sf::Vector2u& windowSize, unsigned int margin, float mass, bool showNeighbors);
 
-    void updateVelocity(const std::vector<Boid*>& boidInPerceptionRadius,
-                        const std::vector<Boid*>& boidsInSeparationRadius,
+    void updateVelocity(const std::vector<std::shared_ptr<Boid>>& boidInPerceptionRadius,
+                        const std::vector<std::shared_ptr<Boid>>& boidsInSeparationRadius,
                         UpdateBoidVelocityParams params);
     void move(float boundingForce);
 
@@ -72,8 +72,6 @@ public:
     const sf::Vector2f& getVelocity() const;
     const sf::Vector2f& getDirection() const;
     float getWidth() const;
-
-
 };
 
 

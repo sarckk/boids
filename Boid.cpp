@@ -5,13 +5,14 @@
 using namespace VectorArithmetic;
 
 Boid::Boid(const sf::Vector2f& pos, const sf::Vector2f& v, const sf::Color& c,
-            float height, float width, const sf::Vector2u& windowSize, unsigned int margin, float mass)
+            float height, float width, const sf::Vector2u& windowSize, unsigned int margin, float mass, bool showNeighbors)
 : Arrow(pos, v, c, height, width)
 , m_velocity(v)
 , m_mass(mass)
 , m_showTrail(false)
 , m_windowSize(windowSize)
 , m_margin(margin)
+, p_showNeighbors(showNeighbors)
 , p_spatialIndex(-1)
 {
     m_trailVertices.reserve(MAX_TRAIL_COUNT);
@@ -21,11 +22,11 @@ const sf::Vector2f& Boid::getVelocity() const { return m_velocity; }
 const sf::Vector2f &Boid::getDirection() const { return m_direction; }
 float Boid::getWidth() const { return m_width; }
 
-sf::Vector2f Boid::alignment(const std::vector<Boid*>& boids, float maxSpeed){
+sf::Vector2f Boid::alignment(const std::vector<std::shared_ptr<Boid>>& boids, float maxSpeed){
     if(boids.empty()) return {};
 
     sf::Vector2f desiredV;
-    for(const Boid* b : boids) {
+    for(const auto b : boids) {
         desiredV += b->m_velocity;
     }
     desiredV /= (float) boids.size();
@@ -33,11 +34,11 @@ sf::Vector2f Boid::alignment(const std::vector<Boid*>& boids, float maxSpeed){
     return desiredV;
 }
 
-sf::Vector2f Boid::separation(const std::vector<Boid*>& boids, float maxSpeed) {
+sf::Vector2f Boid::separation(const std::vector<std::shared_ptr<Boid>>& boids, float maxSpeed) {
     if(boids.empty()) return {};
 
     sf::Vector2f desiredV;
-    for(const Boid* b : boids) {
+    for(const auto b : boids) {
         float dist = getDistance(getPosition(), b->getPosition());
         if(dist < 1e-2) continue;
         desiredV += (getPosition() - b->getPosition()) / (dist * dist);
@@ -47,13 +48,13 @@ sf::Vector2f Boid::separation(const std::vector<Boid*>& boids, float maxSpeed) {
     return desiredV;
 }
 
-sf::Vector2f Boid::cohesion(const std::vector<Boid*>& boids, float maxSpeed) {
+sf::Vector2f Boid::cohesion(const std::vector<std::shared_ptr<Boid>>& boids, float maxSpeed) {
     if(boids.empty()) return {};
 
     sf::Vector2f averagePosition, desiredV;
     int neighborCount = 0;
 
-    for(const Boid* b : boids) {
+    for(const auto b : boids) {
         neighborCount++;
         averagePosition += b->getPosition();
     }
@@ -76,8 +77,8 @@ sf::Vector2f Boid::mouseEffect(MouseModifier mouseModifier, sf::Vector2f mousePo
     return {};
 }
 
-void Boid::updateVelocity(const std::vector<Boid*>& boidsInPerceptionRadius,
-                          const std::vector<Boid*>& boidsInSeparationRadius,
+void Boid::updateVelocity(const std::vector<std::shared_ptr<Boid>>& boidsInPerceptionRadius,
+                          const std::vector<std::shared_ptr<Boid>>& boidsInSeparationRadius,
                           UpdateBoidVelocityParams params) {
     sf::Vector2f steer, alignV, separationV, cohesionV, mouseV;
     float maxSpeed = params.maxSpeed;
@@ -101,12 +102,15 @@ void Boid::updateVelocity(const std::vector<Boid*>& boidsInPerceptionRadius,
     // reset before next update
     m_acceleration.x = 0;
     m_acceleration.y = 0;
-
-    // set current neighbors
-    m_neighbors = boidsInPerceptionRadius;
 }
 
 void Boid::recordPosition(){
+    // clear if boid goes from one end of screen to other
+    if(getSquaredDistance(getPosition(), m_trailVertices.back().position) > 200) {
+        m_trailVertices.clear();
+    }
+
+    // erase if max
     if(m_trailVertices.size() == MAX_TRAIL_COUNT) {
         m_trailVertices.erase(m_trailVertices.begin());
     }
@@ -132,40 +136,27 @@ void Boid::move(float boundingForce) {
         m_velocity.x -= boundingForce;
     }
 
-    if(getPosition().y < m_margin) {
-        m_velocity.y += boundingForce;
-    } else if(getPosition().y > m_windowSize.y - m_margin) {
-        m_velocity.y -= boundingForce;
+    if(getPosition().x < 0) {
+        setPosition(m_windowSize.x, getPosition().y);
+    } else if(getPosition().x > m_windowSize.x) {
+        setPosition(0, getPosition().y);
     }
-//    if(getPosition().x < 0) {
-//        // m_velocity.x += boundingForce;
-//        setPosition(m_windowSize.x, getPosition().y);
-//    } else if(getPosition().x > m_windowSize.x) {
-//        // m_velocity.x -= boundingForce;
-//        setPosition(0, getPosition().y);
-//    }
-//
-//    if(getPosition().y < 0) {
-//        // m_velocity.y += boundingForce;
-//        setPosition(getPosition().x, m_windowSize.y);
-//    } else if(getPosition().y > m_windowSize.y) {
-//        //m_velocity.y -= boundingForce;
-//        setPosition(getPosition().x, 0);
+
+    if(getPosition().y < 0) {
+        setPosition(getPosition().x, m_windowSize.y);
+    } else if(getPosition().y > m_windowSize.y) {
+        setPosition(getPosition().x, 0);
+    }
+
+//    if(getPosition().y < m_margin) {
+//        m_velocity.y += boundingForce;
+//    } else if(getPosition().y > m_windowSize.y - m_margin) {
+//        m_velocity.y -= boundingForce;
 //    }
 }
 
 void Boid::draw(sf::RenderTarget& target, sf::RenderStates states) const {
     Arrow::draw(target, states);
-
-    // draw neighboring boids in perception radius
-    for(Boid* boidPtr : m_neighbors) {
-        sf::CircleShape shape(10);
-        shape.setPosition(boidPtr->getPosition());
-        shape.setFillColor(sf::Color::Red);
-        shape.setOutlineColor(sf::Color::White);
-        shape.setOutlineThickness(1);
-        target.draw(shape,states);
-    }
 
     // now draw trails
     if(m_showTrail)

@@ -14,21 +14,21 @@ class Simulation {
 private:
     constexpr static int SCREEN_MARGIN = 200;
 
-    constexpr static int START_BOID_COUNT = 2;
+    constexpr static int START_BOID_COUNT = 300;
     constexpr static int MAX_BOID_COUNT = 600;
 
     constexpr static int MIN_INIT_VELOCITY_XY = -10;
     constexpr static int MAX_INIT_VELOCITY_XY = 10;
 
-    constexpr static int DEFAULT_BOID_HEIGHT = 12;
-    constexpr static int DEFAULT_BOID_WIDTH = 21;
+    constexpr static int DEFAULT_BOID_HEIGHT = 7;
+    constexpr static int DEFAULT_BOID_WIDTH = 12;
 
     constexpr static int MIN_BOID_HEIGHT = 7;
     constexpr static int MAX_BOID_HEIGHT = 25;
 
     // windows
-    constexpr static int WIN_WIDTH = 1920;
-    constexpr static int WIN_HEIGHT = 1080;
+    constexpr static int WIN_WIDTH = 2880;
+    constexpr static int WIN_HEIGHT = 1800;
     constexpr static int IMGUI_WIDTH = 450;
 
     static const sf::Color DARK_BOID_COLOR;
@@ -52,7 +52,9 @@ private:
     int m_mouseEffectDist;
     int m_mouseModifier;
     bool m_showTrail;
+    bool m_showNeighbors;
     bool m_randomizeSize;
+    std::vector<std::shared_ptr<Boid>> m_currentBoidNeighbors;
 
     void initWindow();
     void initImGui();

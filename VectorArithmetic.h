@@ -4,6 +4,7 @@
 
 namespace VectorArithmetic {
     float getDistance(const sf::Vector2f& v1, const sf::Vector2f& v2);
+    float getSquaredDistance(const sf::Vector2f& v1, const sf::Vector2f& v2);
     float magnitude(const sf::Vector2f& vec);
     void normalize_(sf::Vector2f& vec);
     void limit_(sf::Vector2f& vec, float limit);
