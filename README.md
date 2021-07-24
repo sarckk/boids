@@ -1,15 +1,14 @@
 # Boids
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/sarckk/boids/master/images/screenshot.png" alt="boids_screenshot" />
+  <img src="https://raw.githubusercontent.com/sarckk/boids/master/images/demo.png" alt="boids_screenshot" />
 </p>
 
 
 Boids simulation in C++. Made with [SFML](https://github.com/SFML/SFML) and [Imgui-SFML](https://github.com/eliasdaler/imgui-sfml).
 
-This implementation uses [spatial hashing]() for an efficient radius
-query, allowing it to render many more boids on the screen
-than a naive search algorithm (O(N^2)) would afford.
+This implementation uses [spatial hashing](https://conkerjo.wordpress.com/2009/06/13/spatial-hashing-implementation-for-fast-2d-collisions/) for an efficient radius
+query.
 
 I also considered tree-based techniques (think k-d trees and Quadtrees),
 but ended up using spatial hashing for a few reasons:
@@ -67,3 +66,5 @@ if they don't exist on your machine.
 -   http://www.kfish.org/boids/pseudocode.html
 -   https://nicolas.brodu.net/common/recherche/publications/QuerySphereIndexing.pdf
 -   https://conkerjo.wordpress.com/2009/06/13/spatial-hashing-implementation-for-fast-2d-collisions/
+-   https://www.gamedev.net/tutorials/_/technical/game-programming/spatial-hashing-r2697/
+-   https://www.youtube.com/watch?v=oewDaISQpw0&ab_channel=SimonDev
