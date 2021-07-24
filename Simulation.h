@@ -17,8 +17,8 @@ private:
     constexpr static int START_BOID_COUNT = 300;
     constexpr static int MAX_BOID_COUNT = 600;
 
-    constexpr static int MIN_INIT_VELOCITY_XY = -10;
-    constexpr static int MAX_INIT_VELOCITY_XY = 10;
+    constexpr static int MIN_INIT_VELOCITY_XY = -400;
+    constexpr static int MAX_INIT_VELOCITY_XY = 400;
 
     constexpr static int DEFAULT_BOID_HEIGHT = 7;
     constexpr static int DEFAULT_BOID_WIDTH = 12;
@@ -61,7 +61,7 @@ private:
 
     void addBoids(int count, bool randomizeSize);
     void updateBoidCount(int newCount, bool randomizeSize);
-    void updateBoids(UpdateBoidVelocityParams params, bool showTrail);
+    void updateBoids(UpdateBoidVelocityParams params, bool showTrail, sf::Time elapsed);
 
     void updateMousePosition();
     UpdateBoidVelocityParams updateImGui(sf::Time elapsed);

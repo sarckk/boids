@@ -65,7 +65,7 @@ public:
     void updateVelocity(const std::vector<std::shared_ptr<Boid>>& boidInPerceptionRadius,
                         const std::vector<std::shared_ptr<Boid>>& boidsInSeparationRadius,
                         UpdateBoidVelocityParams params);
-    void move(float boundingForce);
+    void move(float boundingForce, sf::Time deltaTime);
 
     void setShowTrail(bool showTrail);
 

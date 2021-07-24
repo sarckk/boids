@@ -73,7 +73,7 @@ void Simulation::pollEvents() {
     }
 }
 
-void Simulation::updateBoids(UpdateBoidVelocityParams params, bool showTrail) {
+void Simulation::updateBoids(UpdateBoidVelocityParams params, bool showTrail, sf::Time elapsed) {
     // std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 
     for(auto b: m_boids) {
@@ -82,7 +82,7 @@ void Simulation::updateBoids(UpdateBoidVelocityParams params, bool showTrail) {
         m_currentBoidNeighbors = otherBoidsInPerceptionRadius;
         auto otherBoidsInSeparationRadius = m_grid.radiusSearch(b, params.separationRadius);
         b->updateVelocity(otherBoidsInPerceptionRadius ,otherBoidsInSeparationRadius ,params);
-        b->move(1);
+        b->move(1, elapsed);
         m_grid.updateBoid(b);
     }
 
@@ -96,7 +96,7 @@ UpdateBoidVelocityParams Simulation::updateImGui(sf::Time elapsed) {
     static float cohesionWeight = 0.080;
     static int separationRadius = 71;
     static float separationWeight = 0.085;
-    static float maxSpeed = 14;
+    static float maxSpeed = 500;
 
     ImGui::SFML::Update(*window, elapsed);
     const ImGuiViewport* main_viewport = ImGui::GetMainViewport();
@@ -137,8 +137,8 @@ UpdateBoidVelocityParams Simulation::updateImGui(sf::Time elapsed) {
     ImGui::SliderFloat("##5n", &separationWeight, 0, 1 );
 
     ImGui::Text("Flock speed");
-    ImGui::SameLine(); HelpMarker("Max speed at which a boid can travel at.");
-    ImGui::SliderFloat("##6n", &maxSpeed, 1, 50 );
+    ImGui::SameLine(); HelpMarker("Max speed at which a boid can travel at (pixels/second).");
+    ImGui::SliderFloat("##6n", &maxSpeed, 100, 1000 );
 
     ImGui::PopItemWidth();
 
@@ -248,7 +248,7 @@ void Simulation::update() {
     pollEvents();
     UpdateBoidVelocityParams params = updateImGui(elapsed);
     updateBoidCount(m_boidCount, m_randomizeSize);
-    updateBoids(params, m_showTrail);
+    updateBoids(params, m_showTrail, elapsed);
 }
 
 

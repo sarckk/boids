@@ -125,9 +125,9 @@ void Boid::recordPosition(){
     }
 }
 
-void Boid::move(float boundingForce) {
+void Boid::move(float boundingForce, sf::Time deltaTime) {
     recordPosition();
-    Arrow::move(m_velocity);
+    Arrow::move(m_velocity * deltaTime.asSeconds());
 
     // bound the position
     if(getPosition().x < m_margin) {
